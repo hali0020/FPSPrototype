@@ -2,6 +2,11 @@
 
 一个使用 Unreal Engine 5.8.2 和 C++ 编写的第一人称射击游戏原型。
 
+## 重要文档
+
+- 开始开发或换电脑前，请先阅读：[开发与同步注意事项](DEVELOPMENT_GUIDE.md)
+- 模型、声音与模板来源记录：[第三方与模板资源记录](THIRD_PARTY_ASSETS.md)
+
 ## 当前内容
 
 - 第一人称移动、跳跃、瞄准、自动射击、换弹和空仓反馈
@@ -39,7 +44,7 @@
 开始工作前：
 
 ```powershell
-git pull --rebase
+git pull --ff-only
 git lfs pull
 ```
 
@@ -60,4 +65,4 @@ UE 的 `.uasset` 和 `.umap` 无法像文本代码一样自动合并。两台电
 - 不提交 `Binaries`、`DerivedDataCache`、`Intermediate`、`Saved` 或打包产物；这些都能重新生成。
 - 项目包含 Unreal Engine 模板/示例内容及项目内使用的资源。不要把资源文件单独再分发，也不要在没有完成许可证审查前把仓库改为公开。
 - 在另一台电脑使用 Marketplace/Fab 资源时，请使用拥有相应许可的同一 Epic 账号。
-- 第三方资源记录见 `THIRD_PARTY_ASSETS.md`。
+- 完整注意事项见 `DEVELOPMENT_GUIDE.md`，第三方资源记录见 `THIRD_PARTY_ASSETS.md`。
