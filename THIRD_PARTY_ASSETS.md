@@ -2,10 +2,25 @@
 
 本文件用于记录项目中资源的来源，方便换电脑、添加协作者和后续发布前进行许可证复核。它不是许可证文本，也不替代 Fab/Epic 账户中的购买记录与适用条款。
 
+作者署名、原始页面和面向公开仓库的简明结论见 [`CREDITS.md`](CREDITS.md)。
+
+## 2026-08-27 公开页面复核结论
+
+| 内容 | 原作者公开说明 | 可包含在打包游戏/演示中 | 可放入公开 Git 源码历史 |
+| --- | --- | --- | --- |
+| Unreal Engine Templates / Examples | UE EULA 第 5(b) 节允许向第三方分发 Examples 的源码或目标代码 | 是 | 是 |
+| Human Vocalizations | Fab Permanent Collection / Free；作者的合集说明为免版税、可商用、不限项目且无需署名 | 是 | **否**，未找到源文件再分发授权 |
+| Interface & Item Sounds Pack | 作者明确允许在项目/作品中永久、不限次数使用，无额外费用或版税 | 是 | **否**，未找到源文件再分发授权 |
+| Deadghost FPS Weapon Bundle | UE Marketplace 许可 | 是，但仅作为不可分割的项目组成部分 | 否；当前也未进入正式项目或 Git 历史 |
+
+适用于 Marketplace/Fab 内容的 [Epic Content License Agreement](https://www.unrealengine.com/eula/content) 允许把 Licensed Content 以不可分割的目标代码形式包含在游戏中，并允许发布渲染图像和视频；其第 4 节原则上不允许向普通第三方分发源格式 Licensed Content。免费价格、免版税和署名都不会自动改变这个边界。
+
 ## 当前已纳入项目
 
 ### Unreal Engine 模板/示例内容
 
+- 作者/权利方：Epic Games
+- 许可依据：[Unreal Engine EULA](https://www.unrealengine.com/eula/unreal) 第 5(b) 节允许分发 Examples，包括修改后的 Samples/Templates 内容
 - 来源：Unreal Engine 5.8 模板与引擎示例内容
 - 项目目录：`Content/Characters`、`Content/DemoTemplate`、`Content/FirstPerson`、`Content/Input`、`Content/LevelPrototyping`、`Content/Variant_Combat`、`Content/Variant_Shooter`、`Content/Weapons`
 - 用途：角色、动画、当前武器主体步枪、输入、关卡原型与示例效果
@@ -15,19 +30,21 @@
 
 - 发布者：Gamemaster Audio
 - Fab 页面：https://www.fab.com/listings/98259abf-477f-4015-8abe-2c9f62eaefdb
-- 项目目录：`Content/HumanVocalizations`
-- 当前仅纳入 14 个项目实际使用的 SoundWave 资产
+- 本地安装目录：`Content/HumanVocalizations`（已被 `.gitignore` 排除，不进入公开源码）
+- 完整本地版本仅安装 14 个项目实际使用的 SoundWave 资产
 - 用途：玩家和敌人的受击、攻击、警戒与死亡短叫声
-- 注意：保留同一 Epic/Fab 账号中的获取记录；不单独分发声音源资产。
+- 原作者页面说明：Fab 页面将其标为 2018 年 11 月 Unreal Engine Sponsored Content / Permanent Collection，目前为 Free。Gamemaster Audio 的完整合集页面说明声音可商用、免版税、不限项目且无需署名；本项目仍主动署名。
+- 公开分发结论：允许随打包游戏使用，但未找到允许重新发布源音频或 `.uasset` 的授权。保持同一 Epic/Fab 账号中的获取记录，不随公开 Git 源码分发。
 
 ### Interface & Item Sounds Pack
 
 - 发布者：Daydream Sound
 - Fab 页面：https://www.fab.com/listings/78e31bcc-adfc-4816-8e10-609320deeeb1
-- 项目目录：`Content/InterfaceAndItemSounds`
-- 当前仓库保留 3 个 SoundWave 资产；拾取代码已不再引用其中的 `Pop_05`
+- 本地安装目录：`Content/InterfaceAndItemSounds`（已被 `.gitignore` 排除，不进入公开源码）
+- 完整本地版本安装 3 个 SoundWave 资产；拾取代码已不再引用其中的 `Pop_05`
 - 当前用途：空仓与换弹反馈
-- 注意：保留同一 Epic/Fab 账号中的获取记录；不单独分发声音源资产。
+- 原作者页面说明：Permanently Free Collection；可在项目或作品中永久、不限次数使用，无额外费用或版税。本项目主动署名 Daydream Sound。
+- 公开分发结论：允许随打包游戏使用，但该说明没有授予重新发布原始声音或 `.uasset` 的权利。保持同一 Epic/Fab 账号中的获取记录，不随公开 Git 源码分发。
 
 ## 项目自产内容（非第三方采样）
 
@@ -88,8 +105,8 @@
 
 ## 发布前检查
 
-- 仓库保持 Private，只邀请实际开发协作者。
+- `Content/HumanVocalizations` 和 `Content/InterfaceAndItemSounds` 必须持续受 `.gitignore` 保护，并从所有公开 Git 历史中排除；只在新提交中删除仍会留下可下载的旧版本。
 - 不通过公开 Release、Actions Artifact 或公开 LFS 链接分发源资源。
-- 若准备公开源码或发布可下载工程，逐项复核当时有效的 Epic/Fab 条款。
+- 若准备公开源码，优先建立不含 Marketplace/Fab 源资产历史的干净展示仓库；若发布可下载游戏，使用 Cook/Package 后的构建并逐项复核当时有效条款。
 - 发布游戏打包版本前保留资产页面、获取日期与订单/库记录截图。
 - 对项目自产枪声和命中确认音分别保留生成脚本、固定参数、源 WAV 与 SHA-256；重新生成或导入后复核哈希、SoundWave 引用和实际 Cook 结果。

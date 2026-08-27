@@ -5,6 +5,7 @@
 ## 重要文档
 
 - 开始开发或换电脑前，请先阅读：[开发与同步注意事项](DEVELOPMENT_GUIDE.md)
+- 作者署名、原始页面与公开分发边界：[Credits and third-party notices](CREDITS.md)
 - 模型、声音与模板来源记录：[第三方与模板资源记录](THIRD_PARTY_ASSETS.md)
 - Deadghost FPS Weapon Bundle：[2026-08-27 隔离安全与兼容性审计](Docs/AssetAudits/FPS_WEAPON_BUNDLE_2026-08-27.md)
 - 最新 Windows 开发包验收：[2026-08-27 Git-ready 构建报告](Docs/BuildReports/GIT_READY_2026-08-27_170024.md)
@@ -18,7 +19,7 @@
 - 自动射击期间移动速度降为正常步行速度的 65%，停止开火后恢复
 - 右键进入约 1.5 倍 ADS；枪上使用项目内程序化生成的全息瞄具外框
 - 第一人称手臂与 Epic/UE 模板步枪，以及低头可见的第三人称身体和腿部
-- Quinn 快速型与 Manny 重装型两类敌人；具有不同生命、速度、伤害和语音，并轮换攻击、受击与多套死亡动作
+- Quinn 快速型与 Manny 重装型两类敌人；具有不同生命、速度和伤害，并轮换攻击、受击与多套死亡动作；使用者自行取得许可音频后可启用角色语音
 - 敌人追击、近战攻击、受击、死亡、波次生成和掉落补给
 - 敌人生成时显示青蓝光柱与扩张环；死亡时先完整播放死亡动作并保留尸体，尸体寿命结束前约 0.45 秒再隐藏模型并触发核心光爆、冲击环和飞散碎片；两者均为固定组件的原生 C++ 效果，不依赖 Niagara
 - 生命、弹药、准星、命中/击杀提示、伤害红屏和死亡重开界面
@@ -78,9 +79,11 @@
 1. 安装 Unreal Engine **5.8.2**。
 2. 安装 Visual Studio 2022，并勾选“使用 C++ 的游戏开发”、Windows SDK 和 Unreal Engine 工具。
 3. 安装 Git 与 Git LFS，然后执行 `git lfs install`。
-4. 从 GitHub 克隆此私有仓库。不要只下载源码 ZIP，否则 Git LFS 资产可能不完整。
+4. 从 GitHub 克隆仓库。不要只下载源码 ZIP，否则 Git LFS 资产可能不完整。
 5. 如果提示找不到关联引擎，右键 `FPSPrototype.uproject`，先选择“Switch Unreal Engine version/切换 Unreal Engine 版本”并指定 5.8.2；然后生成 Visual Studio 项目文件。
 6. 打开项目；首次启动会重新生成 `Binaries`、`Intermediate`、`Saved` 和缓存，时间较长属于正常现象。
+
+公开源码不会分发 `Human Vocalizations` 和 `Interface & Item Sounds Pack` 的源格式 SoundWave。没有这些可选资源时，代码会跳过相应声音，核心玩法仍可编译运行；需要完整声音的开发者应使用自己的 Epic/Fab 账号获取许可副本，并按 `CREDITS.md` 记录的原始目录在本地安装。打包演示可以依法包含不可分割的 Cook 后内容。
 
 如果引擎提示重建模块，请选择“是”。也可以先打开生成的解决方案，编译 `FPSPrototypeEditor` / `Development Editor`。
 
@@ -108,9 +111,9 @@ UE 的 `.uasset` 和 `.umap` 无法像文本代码一样自动合并。两台电
 
 ## 仓库安全与资产说明
 
-- 仓库应保持为 **Private**。
+- 仓库采用公开源码安全策略：`Content/HumanVocalizations` 和 `Content/InterfaceAndItemSounds` 已列入 `.gitignore`，不能提交到公开 Git 历史；本地取得许可的副本和 Cook 后演示包不受这项源码仓库规则影响，详见 `CREDITS.md`。
 - 不提交 `Binaries`、`DerivedDataCache`、`Intermediate`、`Saved` 或打包产物；这些都能重新生成。
-- 项目包含 Unreal Engine 模板/示例内容及项目内使用的资源。不要把资源文件单独再分发，也不要在没有完成许可证审查前把仓库改为公开。
+- Epic Games 的 Unreal Engine 模板/Examples 可按 Unreal Engine EULA 第 5(b) 节分发；Marketplace/Fab 音频适用不同的源格式分发限制，不能因为价格为免费就随公开源码上传。
 - Deadghost Interactive 的 FPS Weapon Bundle 已通过隔离静态审计、UE 5.8.2 重存和二次 Cook：白名单 218 个资产，最终 `0 errors / 0 warnings`。登录后的 Fab 页面显示 `UE Marketplace` 许可；项目内使用与打包游戏发布通过，但 Marketplace 原始或重存后的 `.uasset` 不进入 GitHub。当前正式项目仍未迁入该包，详见独立审计报告。
 - 在另一台电脑使用 Marketplace/Fab 资源时，请使用拥有相应许可的同一 Epic 账号。
 - 完整注意事项见 `DEVELOPMENT_GUIDE.md`，第三方资源记录见 `THIRD_PARTY_ASSETS.md`。

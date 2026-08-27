@@ -32,6 +32,14 @@
 # Never push raw or UE5-resaved FPS Weapon Bundle packages, even to a private repo.
 /Content/FPS_Weapon_Bundle/
 
+# Licensed Fab audio used only by the local development/packaged build.
+# Public source clones intentionally omit these source-format SoundWave assets.
+/Content/HumanVocalizations/
+/Content/InterfaceAndItemSounds/
+
+# Local recovery data used while rewriting public Git history.
+/.local-licensed-assets/
+
 # Plugin build products (keep plugin source and content)
 /Plugins/*/Binaries/
 /Plugins/*/Intermediate/
