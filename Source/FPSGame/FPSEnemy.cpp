@@ -346,6 +346,44 @@ void AFPSEnemy::HandleDeath()
     SetActorTickEnabled(false);
     GetCharacterMovement()->DisableMovement();
     SetActorEnableCollision(false);
+    const float ClampedLeadTime = FMath::Clamp(DeathEffectLeadTime, 0.05f, 2.0f);
+    float CorpseLifetime = 2.5f;
+    if (USoundBase* DeathSound = PlayRandomVoice(DeathSounds, true))
+    {
+        CorpseLifetime = FMath::Max(CorpseLifetime, DeathSound->GetDuration() + 0.25f);
+    }
+    if (DeathAnimation)
+    {
+        GetMesh()->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+        GetMesh()->PlayAnimation(DeathAnimation, false);
+        CorpseLifetime = FMath::Max(
+            CorpseLifetime, DeathAnimation->GetPlayLength() + ClampedLeadTime);
+    }
+    OnEnemyDied.Broadcast(this);
+
+    const float DeathEffectDelay = CorpseLifetime - FMath::Min(ClampedLeadTime, CorpseLifetime);
+    if (DeathEffectDelay > 0.0f)
+    {
+        GetWorldTimerManager().SetTimer(
+            DeathEffectTimer, this, &AFPSEnemy::TriggerDeathEffect, DeathEffectDelay, false);
+    }
+    else
+    {
+        TriggerDeathEffect();
+    }
+    SetLifeSpan(CorpseLifetime);
+}
+
+void AFPSEnemy::TriggerDeathEffect()
+{
+    if (bHasTriggeredDeathEffect) return;
+    bHasTriggeredDeathEffect = true;
+
+    if (USkeletalMeshComponent* EnemyMesh = GetMesh())
+    {
+        EnemyMesh->SetVisibility(false, true);
+    }
+
     if (UWorld* World = GetWorld())
     {
         FActorSpawnParameters SpawnParameters;
@@ -357,19 +395,6 @@ void AFPSEnemy::HandleDeath()
             FRotator::ZeroRotator,
             SpawnParameters);
     }
-    float CorpseLifetime = 2.5f;
-    if (USoundBase* DeathSound = PlayRandomVoice(DeathSounds, true))
-    {
-        CorpseLifetime = FMath::Max(CorpseLifetime, DeathSound->GetDuration() + 0.25f);
-    }
-    if (DeathAnimation)
-    {
-        GetMesh()->SetAnimationMode(EAnimationMode::AnimationSingleNode);
-        GetMesh()->PlayAnimation(DeathAnimation, false);
-        CorpseLifetime = FMath::Max(CorpseLifetime, DeathAnimation->GetPlayLength() + 0.35f);
-    }
-    OnEnemyDied.Broadcast(this);
-    SetLifeSpan(CorpseLifetime);
 }
 
 USoundBase* AFPSEnemy::PlayRandomVoice(

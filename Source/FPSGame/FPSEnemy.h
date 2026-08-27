@@ -32,6 +32,7 @@ private:
     UFUNCTION() void HandleDeath();
     UFUNCTION() void HandleHealthChanged(float Health, float MaxHealth);
     void ConfigureVariant();
+    void TriggerDeathEffect();
     void TryAttack();
     void ApplyMeleeDamage();
     USoundBase* PlayRandomVoice(
@@ -61,6 +62,8 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="Combat") float AttackRange = 150.0f;
     UPROPERTY(EditDefaultsOnly, Category="Combat") float AttackDamage = 10.0f;
     UPROPERTY(EditDefaultsOnly, Category="Combat") float AttackCooldown = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Visuals", meta=(ClampMin="0.05", ClampMax="2.0"))
+    float DeathEffectLeadTime = 0.45f;
     UPROPERTY(EditDefaultsOnly, Category="Audio", meta=(ClampMin="0.0", ClampMax="1.0"))
     float AlertVoiceChance = 0.35f;
     UPROPERTY(EditDefaultsOnly, Category="Audio", meta=(ClampMin="0.0", ClampMax="1.0"))
@@ -77,5 +80,7 @@ private:
     bool bIsHeavyVariant = false;
     bool bHasDetectedPlayer = false;
     bool bIsDead = false;
+    bool bHasTriggeredDeathEffect = false;
     FTimerHandle AttackDamageTimer;
+    FTimerHandle DeathEffectTimer;
 };
