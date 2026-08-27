@@ -21,6 +21,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="Health")
     float Heal(float HealAmount);
 
+    UFUNCTION(BlueprintCallable, Category="Health")
+    void SetMaxHealth(float NewMaxHealth, bool bRefill = true);
+
     UFUNCTION(BlueprintPure, Category="Health") float GetHealth() const { return Health; }
     UFUNCTION(BlueprintPure, Category="Health") float GetMaxHealth() const { return MaxHealth; }
     UFUNCTION(BlueprintPure, Category="Health") bool IsDead() const { return Health <= 0.0f; }

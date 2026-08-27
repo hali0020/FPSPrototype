@@ -7,6 +7,7 @@
 class UHealthComponent;
 class UAnimSequence;
 class UAudioComponent;
+class USkeletalMesh;
 class USoundBase;
 class AFPSEnemy;
 
@@ -20,6 +21,7 @@ class FPSGAME_API AFPSEnemy : public ACharacter
 public:
     AFPSEnemy();
     virtual void Tick(float DeltaSeconds) override;
+    void SetHeavyVariant(bool bHeavy);
 
     UPROPERTY(BlueprintAssignable, Category="Combat") FEnemyDiedSignature OnEnemyDied;
 
@@ -29,6 +31,7 @@ protected:
 private:
     UFUNCTION() void HandleDeath();
     UFUNCTION() void HandleHealthChanged(float Health, float MaxHealth);
+    void ConfigureVariant();
     void TryAttack();
     void ApplyMeleeDamage();
     USoundBase* PlayRandomVoice(
@@ -36,9 +39,20 @@ private:
 
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UHealthComponent> HealthComponent;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UAudioComponent> VoiceAudio;
+    UPROPERTY() TObjectPtr<USkeletalMesh> QuinnMesh;
+    UPROPERTY() TObjectPtr<USkeletalMesh> MannyMesh;
     UPROPERTY() TObjectPtr<UAnimSequence> AttackAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> HitReactAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> DeathAnimation;
+    UPROPERTY() TArray<TObjectPtr<UAnimSequence>> AttackAnimations;
+    UPROPERTY() TArray<TObjectPtr<UAnimSequence>> HitReactAnimations;
+    UPROPERTY() TArray<TObjectPtr<UAnimSequence>> DeathAnimations;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> QuinnAlertSounds;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> QuinnAttackSounds;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> QuinnHurtSounds;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> QuinnDeathSounds;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> MannyHurtSounds;
+    UPROPERTY() TArray<TObjectPtr<USoundBase>> MannyDeathSounds;
     UPROPERTY() TArray<TObjectPtr<USoundBase>> AlertSounds;
     UPROPERTY() TArray<TObjectPtr<USoundBase>> AttackSounds;
     UPROPERTY() TArray<TObjectPtr<USoundBase>> HurtSounds;
@@ -58,6 +72,9 @@ private:
     float TimeUntilNextAttack = 0.0f;
     float NextHurtVoiceTime = 0.0f;
     float AvoidanceSign = 1.0f;
+    bool bHasVariantOverride = false;
+    bool bRequestedHeavyVariant = false;
+    bool bIsHeavyVariant = false;
     bool bHasDetectedPlayer = false;
     bool bIsDead = false;
     FTimerHandle AttackDamageTimer;

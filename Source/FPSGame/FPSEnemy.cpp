@@ -30,61 +30,90 @@ AFPSEnemy::AFPSEnemy()
     VoiceAudio->AttenuationOverrides.FalloffDistance = 2400.0f;
     VoiceAudio->SetVolumeMultiplier(0.9f);
 
-    static ConstructorHelpers::FObjectFinder<USkeletalMesh> QuinnMesh(
+    static ConstructorHelpers::FObjectFinder<USkeletalMesh> QuinnMeshAsset(
         TEXT("/Game/Characters/Mannequins/Meshes/SKM_Quinn_Simple.SKM_Quinn_Simple"));
+    static ConstructorHelpers::FObjectFinder<USkeletalMesh> MannyMeshAsset(
+        TEXT("/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple.SKM_Manny_Simple"));
     static ConstructorHelpers::FClassFinder<UAnimInstance> UnarmedAnimBlueprint(
         TEXT("/Game/Characters/Mannequins/Anims/Unarmed/ABP_Unarmed"));
-    if (QuinnMesh.Succeeded())
+    if (QuinnMeshAsset.Succeeded())
     {
-        GetMesh()->SetSkeletalMeshAsset(QuinnMesh.Object);
+        QuinnMesh = QuinnMeshAsset.Object;
+        GetMesh()->SetSkeletalMeshAsset(QuinnMesh);
         GetMesh()->SetRelativeLocation(FVector(0.0f, 0.0f, -88.0f));
         GetMesh()->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
         GetMesh()->SetVisibility(true);
     }
+    if (MannyMeshAsset.Succeeded()) MannyMesh = MannyMeshAsset.Object;
     if (UnarmedAnimBlueprint.Succeeded())
     {
         GetMesh()->SetAnimInstanceClass(UnarmedAnimBlueprint.Class);
     }
 
-    static ConstructorHelpers::FObjectFinder<UAnimSequence> AttackAsset(
+    const auto AddAnimation = [](TArray<TObjectPtr<UAnimSequence>>& Target, const TCHAR* AssetPath)
+    {
+        ConstructorHelpers::FObjectFinder<UAnimSequence> AnimationAsset(AssetPath);
+        if (AnimationAsset.Succeeded()) Target.Add(AnimationAsset.Object);
+    };
+    AddAnimation(AttackAnimations,
         TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_01.MM_Attack_01"));
-    static ConstructorHelpers::FObjectFinder<UAnimSequence> HitReactAsset(
+    AddAnimation(AttackAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_02.MM_Attack_02"));
+    AddAnimation(AttackAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Unarmed/Attack/MM_Attack_03.MM_Attack_03"));
+    AddAnimation(HitReactAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Rifle/HitReact/MM_HitReact_Front_Lgt_01.MM_HitReact_Front_Lgt_01"));
+    AddAnimation(HitReactAnimations,
         TEXT("/Game/Characters/Mannequins/Anims/Rifle/HitReact/MM_HitReact_Front_Med_01.MM_HitReact_Front_Med_01"));
-    static ConstructorHelpers::FObjectFinder<UAnimSequence> DeathAsset(
+    AddAnimation(HitReactAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Rifle/HitReact/MM_HitReact_Front_Hvy_01.MM_HitReact_Front_Hvy_01"));
+    AddAnimation(DeathAnimations,
         TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01"));
-    if (AttackAsset.Succeeded()) AttackAnimation = AttackAsset.Object;
-    if (HitReactAsset.Succeeded()) HitReactAnimation = HitReactAsset.Object;
-    if (DeathAsset.Succeeded()) DeathAnimation = DeathAsset.Object;
+    AddAnimation(DeathAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_02.MM_Death_Front_02"));
+    AddAnimation(DeathAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Back_01.MM_Death_Back_01"));
+    AddAnimation(DeathAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Left_01.MM_Death_Left_01"));
+    AddAnimation(DeathAnimations,
+        TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Right_01.MM_Death_Right_01"));
+    AttackAnimation = AttackAnimations.IsEmpty() ? nullptr : AttackAnimations[0];
+    HitReactAnimation = HitReactAnimations.IsEmpty() ? nullptr : HitReactAnimations[0];
+    DeathAnimation = DeathAnimations.IsEmpty() ? nullptr : DeathAnimations[0];
 
     const auto AddVoice = [](TArray<TObjectPtr<USoundBase>>& Target, const TCHAR* AssetPath)
     {
         ConstructorHelpers::FObjectFinder<USoundBase> VoiceAsset(AssetPath);
         if (VoiceAsset.Succeeded()) Target.Add(VoiceAsset.Object);
     };
-    AddVoice(AlertSounds,
+    AddVoice(QuinnAlertSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_battle_shout_short_01.voice_female_c_battle_shout_short_01"));
-    AddVoice(AttackSounds,
+    AddVoice(QuinnAttackSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_attack_01.voice_female_c_attack_01"));
-    AddVoice(AttackSounds,
+    AddVoice(QuinnAttackSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_attack_05.voice_female_c_attack_05"));
-    AddVoice(HurtSounds,
+    AddVoice(QuinnHurtSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_hurt_pain_12.voice_female_c_hurt_pain_12"));
-    AddVoice(HurtSounds,
+    AddVoice(QuinnHurtSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_hurt_pain_01.voice_female_c_hurt_pain_01"));
-    AddVoice(HurtSounds,
+    AddVoice(QuinnHurtSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_hurt_pain_06.voice_female_c_hurt_pain_06"));
-    AddVoice(HurtSounds,
+    AddVoice(QuinnHurtSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_hurt_pain_07.voice_female_c_hurt_pain_07"));
-    AddVoice(HurtSounds,
+    AddVoice(QuinnHurtSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_hurt_pain_02.voice_female_c_hurt_pain_02"));
-    AddVoice(DeathSounds,
+    AddVoice(QuinnDeathSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_death_05.voice_female_c_death_05"));
-    AddVoice(DeathSounds,
+    AddVoice(QuinnDeathSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_death_02.voice_female_c_death_02"));
-    AddVoice(DeathSounds,
+    AddVoice(QuinnDeathSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_death_01.voice_female_c_death_01"));
-    AddVoice(DeathSounds,
+    AddVoice(QuinnDeathSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_death_06.voice_female_c_death_06"));
+    AddVoice(MannyHurtSounds,
+        TEXT("/Game/HumanVocalizations/HumanMaleD/Wavs/voice_male_d_hurt_pain_low_02.voice_male_d_hurt_pain_low_02"));
+    AddVoice(MannyDeathSounds,
+        TEXT("/Game/HumanVocalizations/HumanMaleD/Wavs/voice_male_d_death_05.voice_male_d_death_05"));
 
     GetCharacterMovement()->MaxWalkSpeed = 300.0f;
     GetCharacterMovement()->bRunPhysicsWithNoController = true;
@@ -96,9 +125,88 @@ AFPSEnemy::AFPSEnemy()
 void AFPSEnemy::BeginPlay()
 {
     Super::BeginPlay();
+    ConfigureVariant();
     HealthComponent->OnDeath.AddDynamic(this, &AFPSEnemy::HandleDeath);
     HealthComponent->OnHealthChanged.AddDynamic(this, &AFPSEnemy::HandleHealthChanged);
     AvoidanceSign = (GetUniqueID() % 2 == 0) ? 1.0f : -1.0f;
+}
+
+void AFPSEnemy::SetHeavyVariant(bool bHeavy)
+{
+    bHasVariantOverride = true;
+    bRequestedHeavyVariant = bHeavy;
+}
+
+void AFPSEnemy::ConfigureVariant()
+{
+    const uint32 VariantSeed = GetUniqueID();
+    const bool bWantsHeavyVariant = bHasVariantOverride
+        ? bRequestedHeavyVariant
+        : VariantSeed % 3 == 0;
+    bIsHeavyVariant = MannyMesh != nullptr && bWantsHeavyVariant;
+
+    USkeletalMesh* SelectedMesh = bIsHeavyVariant ? MannyMesh.Get() : QuinnMesh.Get();
+    if (SelectedMesh)
+    {
+        GetMesh()->SetSkeletalMeshAsset(SelectedMesh);
+    }
+    GetMesh()->SetRelativeLocation(FVector(0.0f, 0.0f, -88.0f));
+    GetMesh()->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+    GetMesh()->SetRelativeScale3D(FVector::OneVector);
+
+    if (!AttackAnimations.IsEmpty())
+    {
+        AttackAnimation = AttackAnimations[static_cast<int32>((VariantSeed / 2) % AttackAnimations.Num())];
+    }
+    if (!HitReactAnimations.IsEmpty())
+    {
+        HitReactAnimation = HitReactAnimations[
+            static_cast<int32>((VariantSeed / 3) % HitReactAnimations.Num())];
+    }
+    if (!DeathAnimations.IsEmpty())
+    {
+        DeathAnimation = DeathAnimations[static_cast<int32>((VariantSeed / 5) % DeathAnimations.Num())];
+    }
+
+    if (bIsHeavyVariant)
+    {
+        HealthComponent->SetMaxHealth(150.0f, true);
+        GetCharacterMovement()->MaxWalkSpeed = 245.0f;
+        AttackDamage = 16.0f;
+        AttackCooldown = 1.15f;
+        AttackRange = 165.0f;
+        AlertSounds.Reset();
+        AttackSounds.Reset();
+        HurtSounds = MannyHurtSounds;
+        DeathSounds = MannyDeathSounds;
+        VoiceAudio->SetVolumeMultiplier(1.0f);
+    }
+    else
+    {
+        HealthComponent->SetMaxHealth(85.0f, true);
+        GetCharacterMovement()->MaxWalkSpeed = 330.0f;
+        AttackDamage = 9.0f;
+        AttackCooldown = 0.82f;
+        AttackRange = 145.0f;
+        AlertSounds = QuinnAlertSounds;
+        AttackSounds = QuinnAttackSounds;
+        HurtSounds = QuinnHurtSounds;
+        DeathSounds = QuinnDeathSounds;
+        VoiceAudio->SetVolumeMultiplier(0.86f);
+    }
+
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("FPSVerifyEnemyVariants")))
+    {
+        UE_LOG(LogTemp, Display,
+            TEXT("FPS enemy variant=%s mesh=%s health=%.0f speed=%.0f damage=%.0f"),
+            bIsHeavyVariant ? TEXT("Heavy") : TEXT("Skirmisher"),
+            *GetNameSafe(GetMesh()->GetSkeletalMeshAsset()),
+            HealthComponent->GetMaxHealth(),
+            GetCharacterMovement()->MaxWalkSpeed,
+            AttackDamage);
+    }
+#endif
 }
 
 void AFPSEnemy::Tick(float DeltaSeconds)
@@ -266,7 +374,9 @@ USoundBase* AFPSEnemy::PlayRandomVoice(
     if (!SelectedSound) return nullptr;
 
     VoiceAudio->SetSound(SelectedSound);
-    VoiceAudio->SetPitchMultiplier(FMath::FRandRange(0.97f, 1.03f));
+    VoiceAudio->SetPitchMultiplier(bIsHeavyVariant
+        ? FMath::FRandRange(0.88f, 0.94f)
+        : FMath::FRandRange(0.98f, 1.04f));
     VoiceAudio->Play();
     return SelectedSound;
 }

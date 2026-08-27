@@ -137,13 +137,14 @@ void AFPSGameMode::StartNextWave()
         FVector Location;
         FindEnemySpawnLocation(SpawnCenter, Index, EnemyCount, Location);
         const float FacingYaw = (SpawnCenter - Location).Rotation().Yaw;
-        FActorSpawnParameters SpawnParameters;
-        SpawnParameters.SpawnCollisionHandlingOverride =
-            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-        AFPSEnemy* Enemy = GetWorld()->SpawnActor<AFPSEnemy>(
-            AFPSEnemy::StaticClass(), Location, FRotator(0.0f, FacingYaw, 0.0f), SpawnParameters);
+        const FTransform EnemyTransform(FRotator(0.0f, FacingYaw, 0.0f), Location);
+        AFPSEnemy* Enemy = GetWorld()->SpawnActorDeferred<AFPSEnemy>(
+            AFPSEnemy::StaticClass(), EnemyTransform, nullptr, nullptr,
+            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
         if (Enemy)
         {
+            Enemy->SetHeavyVariant(Index % 3 == 2);
+            UGameplayStatics::FinishSpawningActor(Enemy, EnemyTransform);
             Enemy->OnEnemyDied.AddDynamic(this, &AFPSGameMode::HandleEnemyDied);
         }
         else

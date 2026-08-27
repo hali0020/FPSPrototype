@@ -20,6 +20,13 @@ void UHealthComponent::ApplyDamage(float DamageAmount)
     if (IsDead()) OnDeath.Broadcast();
 }
 
+void UHealthComponent::SetMaxHealth(float NewMaxHealth, bool bRefill)
+{
+    MaxHealth = FMath::Max(1.0f, NewMaxHealth);
+    Health = bRefill ? MaxHealth : FMath::Clamp(Health, 0.0f, MaxHealth);
+    OnHealthChanged.Broadcast(Health, MaxHealth);
+}
+
 float UHealthComponent::Heal(float HealAmount)
 {
     if (HealAmount <= 0.0f || IsDead() || Health >= MaxHealth) return 0.0f;
