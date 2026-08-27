@@ -7,6 +7,7 @@
 - 开始开发或换电脑前，请先阅读：[开发与同步注意事项](DEVELOPMENT_GUIDE.md)
 - 模型、声音与模板来源记录：[第三方与模板资源记录](THIRD_PARTY_ASSETS.md)
 - Deadghost FPS Weapon Bundle：[2026-08-27 隔离安全与兼容性审计](Docs/AssetAudits/FPS_WEAPON_BUNDLE_2026-08-27.md)
+- 最新 Windows 开发包验收：[2026-08-27 Git-ready 构建报告](Docs/BuildReports/GIT_READY_2026-08-27_170024.md)
 
 ## 当前内容
 
