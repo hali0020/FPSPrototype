@@ -100,7 +100,7 @@
 - 必须排除：568 字节空包 `SM_KA_Val_Mag_Loaded_X.uasset`、展示地图、无关的 `IndustryPropsPack6` 和 `InterfaceAndItemSounds`。
 - 内容边界：包内提供武器/附件/弹药模型、材质、纹理、Skeleton 和 PhysicsAsset；不包含开火、换弹或持枪动画，也不包含枪声、拾取声、粒子特效或玩法逻辑。
 - 当前使用情况：正式项目尚未迁入该包；现有枪械主体仍来自 Epic/UE 模板，程序化全息外框也不属于该包。
-- 分发政策：许可允许项目内使用、修改并作为游戏不可分割的一部分打包发布；不得单独分发源资源。为降低风险，即使本仓库是 Private，也禁止通过 Git 或 Git LFS 上传原始或重存后的 Marketplace `.uasset`。另一台电脑必须使用拥有许可的同一 Epic 账号重新下载。
+- 分发政策：许可允许项目内使用、修改并作为游戏不可分割的一部分打包发布；不得单独分发源资源。禁止通过 Git 或 Git LFS 上传原始或重存后的 Marketplace `.uasset`。其他开发环境必须使用拥有许可的 Epic 账号重新下载。
 - 完整审计：`Docs/AssetAudits/FPS_WEAPON_BUNDLE_2026-08-27.md`。审计没有发现风险迹象，但不宣称绝对“零风险”。
 
 ## 发布前检查

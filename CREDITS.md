@@ -1,6 +1,6 @@
 # Credits and third-party notices
 
-本项目由 GitHub 用户 [repository-owner](https://github.com/repository-owner) 开发。游戏专用的 C++ 玩法代码、程序化全息瞄具，以及 `SourceAssets/Audio` 中由项目脚本确定性生成的音效，均为项目自产内容。
+游戏专用的 C++ 玩法代码、程序化全息瞄具，以及 `SourceAssets/Audio` 中由项目脚本确定性生成的音效，均为项目自产内容。
 
 本文件记录第三方资源的作者、原始页面和公开分发边界。它用于致谢和发布前核对，不会替代原作者或 Epic Games 的正式许可证。以下结论核对于 **2026-08-27**。
 
@@ -49,7 +49,7 @@ Content/HumanVocalizations/
 Content/InterfaceAndItemSounds/
 ```
 
-这两个目录已列入 `.gitignore`。本机可以保留通过当前用户 Epic/Fab 账号合法取得的副本，但公开源码的提交、分支、标签、Release 和 Actions Artifact 都不得包含它们。安全的作品展示方式包括：
+这两个目录已列入 `.gitignore`。本地开发环境可以保留通过当前用户 Epic/Fab 账号合法取得的副本，但公开源码的提交、分支、标签、Release 和 Actions Artifact 都不得包含它们。安全的展示方式包括：
 
 1. 发布不含上述两个目录及其历史记录的干净源码仓库；需要这些声音的开发者应使用自己的 Epic/Fab 账号获取许可副本。
 2. 单独发布 Cook/Package 后的可执行游戏、截图或演示视频；不要发布可提取复用的 Marketplace 原始音频或 `.uasset`。
