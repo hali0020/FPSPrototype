@@ -6,6 +6,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
+#include "FPSDeathEffect.h"
 #include "UObject/ConstructorHelpers.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HealthComponent.h"
@@ -224,6 +225,17 @@ void AFPSEnemy::HandleDeath()
     SetActorTickEnabled(false);
     GetCharacterMovement()->DisableMovement();
     SetActorEnableCollision(false);
+    if (UWorld* World = GetWorld())
+    {
+        FActorSpawnParameters SpawnParameters;
+        SpawnParameters.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        World->SpawnActor<AFPSDeathEffect>(
+            AFPSDeathEffect::StaticClass(),
+            GetActorLocation() + FVector(0.0f, 0.0f, 42.0f),
+            FRotator::ZeroRotator,
+            SpawnParameters);
+    }
     float CorpseLifetime = 2.5f;
     if (USoundBase* DeathSound = PlayRandomVoice(DeathSounds, true))
     {

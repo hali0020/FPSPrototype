@@ -7,6 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
@@ -22,6 +23,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
+#include "UnrealClient.h"
 #include "UObject/ConstructorHelpers.h"
 
 AFPSCharacter::AFPSCharacter()
@@ -83,8 +85,11 @@ AFPSCharacter::AFPSCharacter()
     PlayerVoiceAudio->SetUISound(true);
     PlayerVoiceAudio->SetVolumeMultiplier(0.9f);
 
+    WeaponAimRoot = CreateDefaultSubobject<USceneComponent>(TEXT("WeaponAimRoot"));
+    WeaponAimRoot->SetupAttachment(FirstPersonMesh, TEXT("HandGrip_R"));
+
     WeaponMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("WeaponMesh"));
-    WeaponMesh->SetupAttachment(FirstPersonMesh, TEXT("HandGrip_R"));
+    WeaponMesh->SetupAttachment(WeaponAimRoot);
     WeaponMesh->SetOnlyOwnerSee(true);
     WeaponMesh->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
     WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -130,17 +135,27 @@ AFPSCharacter::AFPSCharacter()
     // around Z=11..14. Keep the housing compact so it reads like a holographic
     // sight instead of covering the whole screen during ADS.
     constexpr float OpticRailY = 28.0f;
-    constexpr float OpticCenterZ = 19.0f;
+    constexpr float OpticWindowCenterZ = 21.2f;
+    constexpr float OpticMountCenterZ = 15.2f;
+    OpticAimPoint = CreateDefaultSubobject<USceneComponent>(TEXT("OpticAimPoint"));
+    OpticAimPoint->SetupAttachment(WeaponMesh);
+    OpticAimPoint->SetRelativeLocation(FVector(0.0f, OpticRailY, OpticWindowCenterZ));
     CreateOpticFramePart(TEXT("OpticFrameTop"),
-        FVector(0.0f, OpticRailY, OpticCenterZ + 2.8f), FVector(0.085f, 0.012f, 0.006f));
+        FVector(0.0f, OpticRailY, OpticWindowCenterZ + 2.8f), FVector(0.085f, 0.012f, 0.006f));
     CreateOpticFramePart(TEXT("OpticFrameBottom"),
-        FVector(0.0f, OpticRailY, OpticCenterZ - 2.8f), FVector(0.085f, 0.012f, 0.006f));
+        FVector(0.0f, OpticRailY, OpticWindowCenterZ - 2.8f), FVector(0.085f, 0.012f, 0.006f));
     CreateOpticFramePart(TEXT("OpticFrameLeft"),
-        FVector(-4.0f, OpticRailY, OpticCenterZ), FVector(0.006f, 0.012f, 0.056f));
+        FVector(-4.0f, OpticRailY, OpticWindowCenterZ), FVector(0.006f, 0.012f, 0.056f));
     CreateOpticFramePart(TEXT("OpticFrameRight"),
-        FVector(4.0f, OpticRailY, OpticCenterZ), FVector(0.006f, 0.012f, 0.056f));
+        FVector(4.0f, OpticRailY, OpticWindowCenterZ), FVector(0.006f, 0.012f, 0.056f));
     CreateOpticFramePart(TEXT("OpticMountBase"),
-        FVector(0.0f, OpticRailY - 0.8f, OpticCenterZ - 3.8f), FVector(0.055f, 0.035f, 0.008f));
+        FVector(0.0f, OpticRailY - 0.8f, OpticMountCenterZ), FVector(0.055f, 0.035f, 0.008f));
+    // Two slim risers keep the raised sight window physically connected to the
+    // receiver while letting the rifle itself remain lower in the player's view.
+    CreateOpticFramePart(TEXT("OpticMountLeft"),
+        FVector(-3.0f, OpticRailY, 17.4f), FVector(0.008f, 0.018f, 0.022f));
+    CreateOpticFramePart(TEXT("OpticMountRight"),
+        FVector(3.0f, OpticRailY, 17.4f), FVector(0.008f, 0.018f, 0.022f));
 
     MuzzleFlashMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MuzzleFlashMesh"));
     MuzzleFlashMesh->SetupAttachment(WeaponMesh, TEXT("Muzzle"));
@@ -190,7 +205,7 @@ AFPSCharacter::AFPSCharacter()
     static ConstructorHelpers::FObjectFinder<USoundBase> ReloadSoundAsset(
         TEXT("/Game/InterfaceAndItemSounds/WAV/Flick_Switch_01_wav.Flick_Switch_01_wav"));
     static ConstructorHelpers::FObjectFinder<USoundBase> HitConfirmSoundAsset(
-        TEXT("/Game/InterfaceAndItemSounds/WAV/Pop_05_wav.Pop_05_wav"));
+        TEXT("/Game/Weapons/Rifle/Audio/Generated/SFX_HitConfirm_01.SFX_HitConfirm_01"));
     static ConstructorHelpers::FObjectFinder<USoundBase> PlayerHurtSoundAsset(
         TEXT("/Game/HumanVocalizations/HumanMaleD/Wavs/voice_male_d_hurt_pain_low_02.voice_male_d_hurt_pain_low_02"));
     static ConstructorHelpers::FObjectFinder<USoundBase> PlayerDeathSoundAsset(
@@ -237,6 +252,18 @@ void AFPSCharacter::BeginPlay()
 #if !UE_BUILD_SHIPPING
     // Offline visual regression hook used by the automated screenshot pass.
     bIsAiming = FParse::Param(FCommandLine::Get(), TEXT("FPSCaptureAim"));
+    if (bIsAiming && FParse::Param(FCommandLine::Get(), TEXT("FPSCaptureScreenshot")))
+    {
+        FTimerHandle CaptureTimer;
+        GetWorldTimerManager().SetTimer(
+            CaptureTimer,
+            FTimerDelegate::CreateWeakLambda(this, [this]()
+            {
+                UE_LOG(LogTemp, Display, TEXT("FPS regression screenshot requested after ADS settle."));
+                FScreenshotRequest::RequestScreenshot(true, true);
+            }),
+            3.0f, false);
+    }
 #endif
     NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
     UpdateMovementSpeed();
@@ -287,6 +314,7 @@ void AFPSCharacter::Tick(float DeltaSeconds)
     if (!bIsDead)
     {
         UpdateAim(DeltaSeconds);
+        UpdateWeaponAimAlignment(DeltaSeconds);
         UpdateShotBloom(DeltaSeconds);
     }
 }
@@ -384,10 +412,18 @@ void AFPSCharacter::FireShot()
     MuzzleFlash->SetIntensity(7000.0f);
     GetWorldTimerManager().SetTimer(
         MuzzleFlashTimer, this, &AFPSCharacter::DisableMuzzleFlash, 0.04f, false);
-    const FVector Start = FirstPersonCamera->GetComponentLocation();
+    // HUD aim and ballistics both use the controller's final rendered view.
+    // The view-model may sway cosmetically, but it never drags the stable aim
+    // center away from the middle of the screen.
+    FVector Start = FirstPersonCamera->GetComponentLocation();
+    FRotator ViewRotation = FirstPersonCamera->GetComponentRotation();
+    if (const APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+    {
+        PlayerController->GetPlayerViewPoint(Start, ViewRotation);
+    }
+    const FVector BaseShotDirection = ViewRotation.Vector();
     const float SpreadRadians = FMath::DegreesToRadians(GetCurrentWeaponSpreadDegrees());
-    const FVector ShotDirection = FMath::VRandCone(
-        FirstPersonCamera->GetForwardVector(), SpreadRadians);
+    const FVector ShotDirection = FMath::VRandCone(BaseShotDirection, SpreadRadians);
     const FVector End = Start + ShotDirection * WeaponRange;
     CurrentShotBloomDegrees = FMath::Min(
         MaxShotBloomDegrees, CurrentShotBloomDegrees + ShotBloomPerShot);
@@ -501,6 +537,51 @@ void AFPSCharacter::UpdateAim(float DeltaSeconds)
     FirstPersonCamera->SetRelativeLocation(FMath::VInterpTo(
         FirstPersonCamera->GetRelativeLocation(), TargetCameraLocation,
         DeltaSeconds, AimInterpSpeed));
+}
+
+void AFPSCharacter::UpdateWeaponAimAlignment(float DeltaSeconds)
+{
+    if (!WeaponAimRoot || !FirstPersonMesh || !OpticAimPoint || !FirstPersonCamera)
+    {
+        return;
+    }
+
+    FVector TargetRelativeOffset = FVector::ZeroVector;
+    const float AimProgress = GetAimProgress();
+    if (bIsAiming && AimProgress > KINDA_SMALL_NUMBER)
+    {
+        FVector ViewLocation = FirstPersonCamera->GetComponentLocation();
+        FRotator ViewRotation = FirstPersonCamera->GetComponentRotation();
+        if (const APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+        {
+            PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+        }
+
+        const FTransform GripTransform = FirstPersonMesh->GetSocketTransform(
+            TEXT("HandGrip_R"), RTS_World);
+        // Remove the previous frame's translation before calculating the new
+        // correction. This prevents accumulation while the hand animation moves.
+        const FVector PreviousWorldOffset =
+            GripTransform.TransformVectorNoScale(CurrentWeaponAimOffset);
+        const FVector UnalignedOpticLocation =
+            OpticAimPoint->GetComponentLocation() - PreviousWorldOffset;
+        const FVector ViewForward = ViewRotation.Vector();
+        const FVector ToOptic = UnalignedOpticLocation - ViewLocation;
+        const float ForwardDepth = FVector::DotProduct(ViewForward, ToOptic);
+        if (ForwardDepth > 1.0f)
+        {
+            const FVector OffAxis = ToOptic - ViewForward * ForwardDepth;
+            const FVector DesiredWorldOffset = -OffAxis;
+            TargetRelativeOffset = GripTransform.InverseTransformVectorNoScale(
+                DesiredWorldOffset).GetClampedToMaxSize(MaxWeaponAimOffset);
+            TargetRelativeOffset *= AimProgress;
+        }
+    }
+
+    CurrentWeaponAimOffset = FMath::VInterpTo(
+        CurrentWeaponAimOffset, TargetRelativeOffset, DeltaSeconds,
+        WeaponAimAlignmentSpeed);
+    WeaponAimRoot->SetRelativeLocation(CurrentWeaponAimOffset);
 }
 
 void AFPSCharacter::StartSprint()

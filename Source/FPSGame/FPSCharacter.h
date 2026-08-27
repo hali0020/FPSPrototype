@@ -7,6 +7,7 @@
 class UCameraComponent;
 class UAudioComponent;
 class UHealthComponent;
+class USceneComponent;
 class USkeletalMeshComponent;
 class UStaticMeshComponent;
 class UPointLightComponent;
@@ -62,6 +63,7 @@ private:
     void StartAim();
     void StopAim();
     void UpdateAim(float DeltaSeconds);
+    void UpdateWeaponAimAlignment(float DeltaSeconds);
     void StartSprint();
     void StopSprint();
     void RefreshSprintState();
@@ -86,7 +88,9 @@ private:
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UCameraComponent> FirstPersonCamera;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UHealthComponent> HealthComponent;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<USkeletalMeshComponent> FirstPersonMesh;
+    UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<USceneComponent> WeaponAimRoot;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<USkeletalMeshComponent> WeaponMesh;
+    UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<USceneComponent> OpticAimPoint;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UStaticMeshComponent> MuzzleFlashMesh;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UPointLightComponent> MuzzleFlash;
     UPROPERTY(VisibleAnywhere, Category="Components")
@@ -130,9 +134,13 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="Aim")
     FVector HipCameraRelativeLocation = FVector(13.5f, 5.89f, -2.0f);
     UPROPERTY(EditDefaultsOnly, Category="Aim")
-    FVector AimCameraRelativeLocation = FVector(13.0f, 8.0f, 5.5f);
+    FVector AimCameraRelativeLocation = FVector(13.0f, 8.0f, 6.0f);
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint") float SprintFOV = 96.0f;
     UPROPERTY(EditDefaultsOnly, Category="Aim") float AimInterpSpeed = 12.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim", meta=(ClampMin="0.1"))
+    float WeaponAimAlignmentSpeed = 18.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim", meta=(ClampMin="0.0"))
+    float MaxWeaponAimOffset = 12.0f;
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.0"))
     float SprintSpeed = 900.0f;
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.0", ClampMax="1.0"))
@@ -181,6 +189,7 @@ private:
     float PickupMessageEndTime = 0.0f;
     float CurrentShotBloomDegrees = 0.0f;
     float LastShotTime = -BIG_NUMBER;
+    FVector CurrentWeaponAimOffset = FVector::ZeroVector;
     int32 NextFireAudioVoice = 0;
     FString PickupMessage;
     FTimerHandle FireTimer;

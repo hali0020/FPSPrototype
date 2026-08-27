@@ -22,6 +22,8 @@ void AFPSHUD::DrawHUD()
             const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
             if (Character->IsAimViewSettled())
             {
+                // Keep the actual aim center stable. Weapon/hand motion is a
+                // cosmetic view-model layer and spread is applied to ballistics.
                 DrawOpticReticle(Center, Character);
             }
             else
