@@ -14,7 +14,10 @@ void AFPSHUD::DrawHUD()
     if (Character && !Character->IsDead())
     {
         DrawDamageFeedback(Character);
-        DrawCrosshair(FVector2D(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f), Character);
+        if (!Character->IsSprinting() && !Character->IsAiming())
+        {
+            DrawCrosshair(FVector2D(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f), Character);
+        }
         DrawStatus(Character);
         DrawPickupMessage(Character);
     }
@@ -90,6 +93,18 @@ void AFPSHUD::DrawStatus(AFPSCharacter* Character)
         ? TEXT("RELOADING...")
         : FString::Printf(TEXT("%d / %d"), Character->GetAmmoInMagazine(), Character->GetReserveAmmo());
     DrawText(Ammo, FLinearColor::White, Canvas->ClipX - 190.0f, Canvas->ClipY - 80.0f, GEngine->GetLargeFont());
+
+    if (Character->IsSprinting())
+    {
+        const FString SprintStatus = TEXT("SPRINTING  |  FIRE LOCKED");
+        UFont* Font = GEngine->GetSmallFont();
+        float TextWidth = 0.0f;
+        float TextHeight = 0.0f;
+        Canvas->StrLen(Font, SprintStatus, TextWidth, TextHeight);
+        DrawText(SprintStatus, FLinearColor(1.0f, 0.62f, 0.08f),
+            Canvas->ClipX * 0.5f - TextWidth * 0.5f,
+            Canvas->ClipY - 72.0f, Font);
+    }
 }
 
 void AFPSHUD::DrawPickupMessage(AFPSCharacter* Character)

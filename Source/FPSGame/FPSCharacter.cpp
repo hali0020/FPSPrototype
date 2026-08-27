@@ -52,13 +52,15 @@ AFPSCharacter::AFPSCharacter()
     FirstPersonMesh->SetCastShadow(false);
 
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-    FirstPersonCamera->SetupAttachment(FirstPersonMesh, TEXT("head"));
+    // Keep view motion on the stable world-pose head. The owner-only mesh can then
+    // blend full-body sprint/ADS poses without injecting unwanted camera bob.
+    FirstPersonCamera->SetupAttachment(GetMesh(), TEXT("head"));
     FirstPersonCamera->SetRelativeLocationAndRotation(
-        FVector(3.2f, 5.89f, 0.0f), FRotator(0.0f, 90.0f, -90.0f));
+        HipCameraRelativeLocation, FRotator(0.0f, 90.0f, -90.0f));
     FirstPersonCamera->bUsePawnControlRotation = true;
     FirstPersonCamera->bEnableFirstPersonFieldOfView = true;
     FirstPersonCamera->bEnableFirstPersonScale = true;
-    FirstPersonCamera->FirstPersonFieldOfView = 70.0f;
+    FirstPersonCamera->FirstPersonFieldOfView = HipFirstPersonFOV;
     FirstPersonCamera->FirstPersonScale = 0.6f;
 
     WeaponFeedbackAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WeaponFeedbackAudio"));
@@ -132,6 +134,10 @@ AFPSCharacter::AFPSCharacter()
         TEXT("/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Reload.MM_Rifle_Reload"));
     static ConstructorHelpers::FObjectFinder<UAnimSequence> DryFireAsset(
         TEXT("/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_DryFire.MM_Rifle_DryFire"));
+    static ConstructorHelpers::FObjectFinder<UAnimSequence> SprintAsset(
+        TEXT("/Game/Characters/Mannequins/Anims/Rifle/Jog/MF_Rifle_Jog_Fwd.MF_Rifle_Jog_Fwd"));
+    static ConstructorHelpers::FObjectFinder<UAnimSequence> AimAsset(
+        TEXT("/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS"));
     static ConstructorHelpers::FObjectFinder<UAnimSequence> DeathAsset(
         TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01"));
     static ConstructorHelpers::FObjectFinder<USoundBase> FireSoundAsset(
@@ -159,6 +165,8 @@ AFPSCharacter::AFPSCharacter()
     if (FireMontageAsset.Succeeded()) FireMontage = FireMontageAsset.Object;
     if (ReloadAsset.Succeeded()) ReloadAnimation = ReloadAsset.Object;
     if (DryFireAsset.Succeeded()) DryFireAnimation = DryFireAsset.Object;
+    if (SprintAsset.Succeeded()) SprintAnimation = SprintAsset.Object;
+    if (AimAsset.Succeeded()) AimAnimation = AimAsset.Object;
     if (DeathAsset.Succeeded()) DeathAnimation = DeathAsset.Object;
     if (FireSoundAsset.Succeeded()) FireSound = FireSoundAsset.Object;
     if (EmptySoundAsset.Succeeded()) EmptySound = EmptySoundAsset.Object;
@@ -173,6 +181,7 @@ AFPSCharacter::AFPSCharacter()
 void AFPSCharacter::BeginPlay()
 {
     Super::BeginPlay();
+    NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
     AmmoInMagazine = MagazineSize;
     ReserveAmmo = FMath::Clamp(ReserveAmmo, 0, MaxReserveAmmo);
     if (ReloadAnimation) ReloadDuration = ReloadAnimation->GetPlayLength();
@@ -185,6 +194,7 @@ void AFPSCharacter::BeginPlay()
         FirstPersonMesh->HideBoneByName(TEXT("head"), PBO_None);
     }
     FirstPersonCamera->SetFieldOfView(HipFOV);
+    FirstPersonCamera->FirstPersonFieldOfView = HipFirstPersonFOV;
     LastKnownHealth = HealthComponent->GetHealth();
     HealthComponent->OnHealthChanged.AddDynamic(this, &AFPSCharacter::HandleHealthChanged);
     HealthComponent->OnDeath.AddDynamic(this, &AFPSCharacter::HandleDeath);
@@ -197,6 +207,7 @@ void AFPSCharacter::BeginPlay()
 void AFPSCharacter::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
+    RefreshSprintState();
     if (!bIsDead) UpdateAim(DeltaSeconds);
 }
 
@@ -214,16 +225,30 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
     PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &AFPSCharacter::StartReload);
     PlayerInputComponent->BindAction("Aim", IE_Pressed, this, &AFPSCharacter::StartAim);
     PlayerInputComponent->BindAction("Aim", IE_Released, this, &AFPSCharacter::StopAim);
+    PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFPSCharacter::StartSprint);
+    PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFPSCharacter::StopSprint);
     PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &AFPSCharacter::RestartPressed);
 }
 
-void AFPSCharacter::MoveForward(float Value) { if (!bIsDead) AddMovementInput(GetActorForwardVector(), Value); }
+void AFPSCharacter::MoveForward(float Value)
+{
+    ForwardInputValue = Value;
+    RefreshSprintState();
+    if (!bIsDead) AddMovementInput(GetActorForwardVector(), Value);
+}
+
 void AFPSCharacter::MoveRight(float Value) { if (!bIsDead) AddMovementInput(GetActorRightVector(), Value); }
 
 void AFPSCharacter::StartFire()
 {
+    RefreshSprintState();
+    if (bIsDead || bIsSprinting)
+    {
+        bWantsToFire = false;
+        return;
+    }
     bWantsToFire = true;
-    if (bIsReloading || bIsDead) return;
+    if (bIsReloading) return;
     FireShot();
     if (!bIsReloading && AmmoInMagazine > 0)
     {
@@ -239,7 +264,8 @@ void AFPSCharacter::StopFire()
 
 void AFPSCharacter::FireShot()
 {
-    if (bIsDead || bIsReloading)
+    RefreshSprintState();
+    if (bIsDead || bIsReloading || bIsSprinting)
     {
         GetWorldTimerManager().ClearTimer(FireTimer);
         return;
@@ -307,6 +333,8 @@ void AFPSCharacter::StartReload()
     if (bIsDead || bIsReloading || AmmoInMagazine >= MagazineSize || ReserveAmmo <= 0) return;
     GetWorldTimerManager().ClearTimer(FireTimer);
     bIsReloading = true;
+    bIsAiming = false;
+    SetSprinting(false);
     PlayReloadAnimation();
     PlayLocalFeedback(WeaponFeedbackAudio, ReloadSound, 0.62f, 0.94f);
     GetWorldTimerManager().SetTimer(ReloadTimer, this, &AFPSCharacter::FinishReload, ReloadDuration, false);
@@ -320,8 +348,9 @@ void AFPSCharacter::FinishReload()
     AmmoInMagazine += Loaded;
     ReserveAmmo -= Loaded;
     bIsReloading = false;
+    RefreshSprintState();
     PlayLocalFeedback(WeaponFeedbackAudio, ReloadSound, 0.52f, 1.12f);
-    if (bWantsToFire && AmmoInMagazine > 0 && !bIsDead)
+    if (bWantsToFire && AmmoInMagazine > 0 && !bIsDead && !bIsSprinting)
     {
         FireShot();
         if (AmmoInMagazine > 0)
@@ -331,12 +360,79 @@ void AFPSCharacter::FinishReload()
     }
 }
 
-void AFPSCharacter::StartAim() { if (!bIsDead) bIsAiming = true; }
-void AFPSCharacter::StopAim() { bIsAiming = false; }
+void AFPSCharacter::StartAim()
+{
+    if (bIsDead || bIsReloading) return;
+    bIsAiming = true;
+    SetSprinting(false);
+}
+
+void AFPSCharacter::StopAim()
+{
+    bIsAiming = false;
+    RefreshSprintState();
+}
+
 void AFPSCharacter::UpdateAim(float DeltaSeconds)
 {
-    const float TargetFOV = bIsAiming ? AimFOV : HipFOV;
-    FirstPersonCamera->SetFieldOfView(FMath::FInterpTo(FirstPersonCamera->FieldOfView, TargetFOV, DeltaSeconds, AimInterpSpeed));
+    const float TargetFOV = bIsAiming ? AimFOV : (bIsSprinting ? SprintFOV : HipFOV);
+    const float TargetFirstPersonFOV = bIsAiming ? AimFirstPersonFOV : HipFirstPersonFOV;
+    const FVector TargetCameraLocation = bIsAiming
+        ? AimCameraRelativeLocation
+        : HipCameraRelativeLocation;
+    FirstPersonCamera->SetFieldOfView(FMath::FInterpTo(
+        FirstPersonCamera->FieldOfView, TargetFOV, DeltaSeconds, AimInterpSpeed));
+    FirstPersonCamera->FirstPersonFieldOfView = FMath::FInterpTo(
+        FirstPersonCamera->FirstPersonFieldOfView, TargetFirstPersonFOV,
+        DeltaSeconds, AimInterpSpeed);
+    FirstPersonCamera->SetRelativeLocation(FMath::VInterpTo(
+        FirstPersonCamera->GetRelativeLocation(), TargetCameraLocation,
+        DeltaSeconds, AimInterpSpeed));
+}
+
+void AFPSCharacter::StartSprint()
+{
+    if (bIsDead) return;
+    bSprintHeld = true;
+    RefreshSprintState();
+}
+
+void AFPSCharacter::StopSprint()
+{
+    bSprintHeld = false;
+    SetSprinting(false);
+}
+
+void AFPSCharacter::RefreshSprintState()
+{
+    UCharacterMovementComponent* Movement = GetCharacterMovement();
+    const bool bShouldSprint = Movement
+        && bSprintHeld
+        && ForwardInputValue > SprintForwardThreshold
+        && !bIsDead
+        && !bIsReloading
+        && !bIsAiming
+        && Movement->IsMovingOnGround();
+    SetSprinting(bShouldSprint);
+}
+
+void AFPSCharacter::SetSprinting(bool bNewSprinting)
+{
+    if (bIsSprinting == bNewSprinting) return;
+
+    bIsSprinting = bNewSprinting;
+    if (UCharacterMovementComponent* Movement = GetCharacterMovement())
+    {
+        Movement->MaxWalkSpeed = bIsSprinting
+            ? FMath::Max(SprintSpeed, NormalWalkSpeed)
+            : NormalWalkSpeed;
+    }
+
+    if (bIsSprinting)
+    {
+        bIsAiming = false;
+        StopFire();
+    }
 }
 
 void AFPSCharacter::PlayFireAnimation()
@@ -496,11 +592,16 @@ void AFPSCharacter::HandleDeath()
 {
     if (bIsDead) return;
     bIsDead = true;
+    bSprintHeld = false;
+    SetSprinting(false);
     DeathStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
     bWantsToFire = false;
     bIsAiming = false;
     bIsReloading = false;
     StopFire();
+    FirstPersonCamera->SetFieldOfView(HipFOV);
+    FirstPersonCamera->FirstPersonFieldOfView = HipFirstPersonFOV;
+    FirstPersonCamera->SetRelativeLocation(HipCameraRelativeLocation);
     if (WeaponFireAudio) WeaponFireAudio->Stop();
     if (WeaponFeedbackAudio) WeaponFeedbackAudio->Stop();
     if (HitConfirmAudio) HitConfirmAudio->Stop();

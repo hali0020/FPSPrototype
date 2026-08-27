@@ -28,6 +28,8 @@ public:
     UFUNCTION(BlueprintPure, Category="Weapon") int32 GetMagazineSize() const { return MagazineSize; }
     UFUNCTION(BlueprintPure, Category="Weapon") int32 GetMaxReserveAmmo() const { return MaxReserveAmmo; }
     UFUNCTION(BlueprintPure, Category="Weapon") bool IsReloading() const { return bIsReloading; }
+    UFUNCTION(BlueprintPure, Category="Weapon") bool IsAiming() const { return bIsAiming; }
+    UFUNCTION(BlueprintPure, Category="Movement") bool IsSprinting() const { return bIsSprinting; }
     UFUNCTION(BlueprintPure, Category="Weapon") bool IsHitMarkerVisible() const;
     UFUNCTION(BlueprintPure, Category="Weapon") bool WasLastHitKill() const { return bLastHitWasKill; }
     UFUNCTION(BlueprintPure, Category="Health") UHealthComponent* GetHealthComponent() const { return HealthComponent; }
@@ -39,6 +41,9 @@ public:
     void ShowPickupMessage(const FString& Message);
     const FString& GetPickupMessage() const { return PickupMessage; }
     float GetPickupMessageAlpha() const;
+    UAnimSequence* GetSprintPoseAnimation() const { return SprintAnimation; }
+    UAnimSequence* GetAimPoseAnimation() const { return AimAnimation; }
+    float GetSprintPosePlayRate() const { return SprintAnimationPlayRate; }
 
 protected:
     virtual void BeginPlay() override;
@@ -54,6 +59,10 @@ private:
     void StartAim();
     void StopAim();
     void UpdateAim(float DeltaSeconds);
+    void StartSprint();
+    void StopSprint();
+    void RefreshSprintState();
+    void SetSprinting(bool bNewSprinting);
     void PlayFireAnimation();
     void PlayReloadAnimation();
     void PlayDryFireFeedback();
@@ -82,6 +91,8 @@ private:
     UPROPERTY() TObjectPtr<UAnimMontage> FireMontage;
     UPROPERTY() TObjectPtr<UAnimSequence> ReloadAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> DryFireAnimation;
+    UPROPERTY() TObjectPtr<UAnimSequence> SprintAnimation;
+    UPROPERTY() TObjectPtr<UAnimSequence> AimAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> DeathAnimation;
     UPROPERTY() TObjectPtr<USoundBase> FireSound;
     UPROPERTY() TObjectPtr<USoundBase> EmptySound;
@@ -105,8 +116,21 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="Feedback", meta=(ClampMin="0.1"))
     float PickupMessageDuration = 1.4f;
     UPROPERTY(EditDefaultsOnly, Category="Aim") float HipFOV = 90.0f;
-    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFOV = 65.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFOV = 58.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float HipFirstPersonFOV = 82.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFirstPersonFOV = 68.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim")
+    FVector HipCameraRelativeLocation = FVector(6.0f, 5.89f, 0.0f);
+    UPROPERTY(EditDefaultsOnly, Category="Aim")
+    FVector AimCameraRelativeLocation = FVector(3.2f, 5.89f, 0.0f);
+    UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint") float SprintFOV = 96.0f;
     UPROPERTY(EditDefaultsOnly, Category="Aim") float AimInterpSpeed = 12.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.0"))
+    float SprintSpeed = 900.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float SprintForwardThreshold = 0.2f;
+    UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.1"))
+    float SprintAnimationPlayRate = 1.15f;
 
     int32 AmmoInMagazine = 30;
     int32 ReserveAmmo = 90;
@@ -114,7 +138,11 @@ private:
     bool bIsAiming = false;
     bool bIsDead = false;
     bool bWantsToFire = false;
+    bool bSprintHeld = false;
+    bool bIsSprinting = false;
     bool bLastHitWasKill = false;
+    float ForwardInputValue = 0.0f;
+    float NormalWalkSpeed = 0.0f;
     float HitMarkerEndTime = 0.0f;
     float DamageFeedbackEndTime = 0.0f;
     float NextHurtSoundTime = 0.0f;

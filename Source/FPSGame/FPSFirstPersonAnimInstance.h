@@ -2,8 +2,10 @@
 
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "Animation/AnimNode_SequencePlayer.h"
 #include "AnimNodes/AnimNode_CopyPoseFromMesh.h"
 #include "AnimNodes/AnimNode_Slot.h"
+#include "AnimNodes/AnimNode_TwoWayBlend.h"
 #include "FPSFirstPersonAnimInstance.generated.h"
 
 USTRUCT()
@@ -24,6 +26,10 @@ struct FPSGAME_API FFPSFirstPersonAnimInstanceProxy : public FAnimInstanceProxy
 
 private:
     FAnimNode_CopyPoseFromMesh CopyPoseFromParent;
+    FAnimNode_SequencePlayer_Standalone SprintPosePlayer;
+    FAnimNode_SequencePlayer_Standalone AimPosePlayer;
+    FAnimNode_TwoWayBlend SprintBlend;
+    FAnimNode_TwoWayBlend AimBlend;
     FAnimNode_Slot ArmsSlot;
 };
 
