@@ -72,18 +72,19 @@
 - 来源：由项目代码和引擎基础图元程序化构成，没有导入第三方瞄准镜模型。
 - 边界：全息外框是项目自产部分，外框下方的枪械主体仍是 Epic/UE 模板步枪。
 
-## 已获取但尚未确认纳入当前仓库
+## 已获取并通过隔离审计、尚未纳入当前仓库
 
 ### FPS Weapon Bundle
 
 - 发布者：Deadghost Interactive
 - Fab 页面：https://www.fab.com/listings/8aeb9c48-b404-4dcd-9e56-1d0ecedba7f5
-- 状态：已在 Fab 账号中领取，并已建立、编译本机隔离审计工程；资源包本体仍未下载到正式项目，也尚未完成许可证、文件内容、依赖、兼容性与安全审计。
-- 2026-08-27 审计记录：Epic 设备授权成功，但隔离工具尝试用 Fab 客户端令牌访问 Launcher 清单服务时收到 401。该令牌的客户端/权限域与 Launcher 服务不匹配；审计结果为 0 字节、0 文件、未迁移，`safeToMigrate` 仍为 `false`。
-- 隔离边界：审计工程不属于本仓库；审计工具编译通过不代表资源包已经通过审计。
-- 当前使用情况：当前仓库和游戏不使用该包；现有枪械主体来自 Epic/UE 模板，程序化全息外框也不属于该包。
-- 风险表述：在完成下载与逐项审计前，不得把该包写成“已使用”“已验证”“兼容 UE 5.8”或“零风险”。
-- 后续：如需评估，只能在隔离项目中通过 UE 官方 Fab 面板执行 `Add to Project`，由官方前端取得签名下载信息后再做静态审计。不得读取、复用或提交 Epic Games Launcher 的缓存令牌，不得硬编码 Launcher 客户端凭据，也不得绕过 401。审计通过后才可迁移实际需要的资产。
+- 获取与许可：登录后的官方 Fab 页面显示 `Saved in My Library` 和 `License terms: UE Marketplace`，并链接 Epic Content License Agreement。
+- 2026-08-27 技术审计：只保留武器目录的 218 个资产，在 UE 5.8.2 隔离重存后完成第二次 Cook，结果为 `218/218`、`0 errors`、`0 warnings`；外部 `/Game` 依赖和缺失依赖均为 0。
+- 必须排除：568 字节空包 `SM_KA_Val_Mag_Loaded_X.uasset`、展示地图、无关的 `IndustryPropsPack6` 和 `InterfaceAndItemSounds`。
+- 内容边界：包内提供武器/附件/弹药模型、材质、纹理、Skeleton 和 PhysicsAsset；不包含开火、换弹或持枪动画，也不包含枪声、拾取声、粒子特效或玩法逻辑。
+- 当前使用情况：正式项目尚未迁入该包；现有枪械主体仍来自 Epic/UE 模板，程序化全息外框也不属于该包。
+- 分发政策：许可允许项目内使用、修改并作为游戏不可分割的一部分打包发布；不得单独分发源资源。为降低风险，即使本仓库是 Private，也禁止通过 Git 或 Git LFS 上传原始或重存后的 Marketplace `.uasset`。另一台电脑必须使用拥有许可的同一 Epic 账号重新下载。
+- 完整审计：`Docs/AssetAudits/FPS_WEAPON_BUNDLE_2026-08-27.md`。审计没有发现风险迹象，但不宣称绝对“零风险”。
 
 ## 发布前检查
 

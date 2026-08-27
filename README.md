@@ -6,6 +6,7 @@
 
 - 开始开发或换电脑前，请先阅读：[开发与同步注意事项](DEVELOPMENT_GUIDE.md)
 - 模型、声音与模板来源记录：[第三方与模板资源记录](THIRD_PARTY_ASSETS.md)
+- Deadghost FPS Weapon Bundle：[2026-08-27 隔离安全与兼容性审计](Docs/AssetAudits/FPS_WEAPON_BUNDLE_2026-08-27.md)
 
 ## 当前内容
 
@@ -55,7 +56,7 @@
 - 医疗：柔和三音确认，0.42 秒，SHA-256 `299AFBD87691BB686EF1192C854761D947E24F66C24BBFF65140385E15E4A5BD`
 - 综合补给：机械卡扣、低频实体感与上行和弦，0.50 秒，SHA-256 `31DB92981993579140C17E23D1D9D23501ECFDD6F9EE7DC83CC27E6D67CA966D`
 
-这些项目自生成声音都只使用固定随机种子和数学合成，不包含下载、录制或第三方音频采样。拾取代码已不再引用 `Pop_05`。枪上的全息瞄具外框同样由项目程序化生成；武器主体仍是 Epic/UE 模板步枪，并不是尚未审计的 Deadghost 武器包。
+这些项目自生成声音都只使用固定随机种子和数学合成，不包含下载、录制或第三方音频采样。拾取代码已不再引用 `Pop_05`。枪上的全息瞄具外框同样由项目程序化生成；武器主体仍是 Epic/UE 模板步枪，当前正式项目尚未迁入已通过隔离审计的 Deadghost 武器包。
 
 ## 操作
 
@@ -109,6 +110,6 @@ UE 的 `.uasset` 和 `.umap` 无法像文本代码一样自动合并。两台电
 - 仓库应保持为 **Private**。
 - 不提交 `Binaries`、`DerivedDataCache`、`Intermediate`、`Saved` 或打包产物；这些都能重新生成。
 - 项目包含 Unreal Engine 模板/示例内容及项目内使用的资源。不要把资源文件单独再分发，也不要在没有完成许可证审查前把仓库改为公开。
-- Deadghost Interactive 的 FPS Weapon Bundle 目前仅在 Fab 账号中领取；隔离审计的 Epic 授权已成功，但跨服务清单请求因权限域不匹配收到 401，结果为 0 字节、0 文件、未迁移。当前游戏没有使用该包，不能将其描述为“零风险”；后续只走 UE 官方 Fab 面板的隔离 `Add to Project` 流程。
+- Deadghost Interactive 的 FPS Weapon Bundle 已通过隔离静态审计、UE 5.8.2 重存和二次 Cook：白名单 218 个资产，最终 `0 errors / 0 warnings`。登录后的 Fab 页面显示 `UE Marketplace` 许可；项目内使用与打包游戏发布通过，但 Marketplace 原始或重存后的 `.uasset` 不进入 GitHub。当前正式项目仍未迁入该包，详见独立审计报告。
 - 在另一台电脑使用 Marketplace/Fab 资源时，请使用拥有相应许可的同一 Epic 账号。
 - 完整注意事项见 `DEVELOPMENT_GUIDE.md`，第三方资源记录见 `THIRD_PARTY_ASSETS.md`。

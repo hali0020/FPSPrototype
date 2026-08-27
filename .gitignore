@@ -28,6 +28,10 @@
 /Content/Collections/
 /Config/DefaultEditorPerProjectUserSettings.ini
 
+# Licensed Marketplace source assets: re-download with the licensed Fab account.
+# Never push raw or UE5-resaved FPS Weapon Bundle packages, even to a private repo.
+/Content/FPS_Weapon_Bundle/
+
 # Plugin build products (keep plugin source and content)
 /Plugins/*/Binaries/
 /Plugins/*/Intermediate/
