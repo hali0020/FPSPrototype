@@ -25,8 +25,8 @@
 - 发布者：Daydream Sound
 - Fab 页面：https://www.fab.com/listings/78e31bcc-adfc-4816-8e10-609320deeeb1
 - 项目目录：`Content/InterfaceAndItemSounds`
-- 当前仅纳入 3 个项目实际使用的 SoundWave 资产
-- 用途：空仓、换弹与拾取反馈
+- 当前仓库保留 3 个 SoundWave 资产；拾取代码已不再引用其中的 `Pop_05`
+- 当前用途：空仓与换弹反馈
 - 注意：保留同一 Epic/Fab 账号中的获取记录；不单独分发声音源资产。
 
 ## 项目自产内容（非第三方采样）
@@ -54,6 +54,18 @@
 - 生成方式：使用固定随机种子、合成噪声和非谐波振荡器进行确定性离线合成，不含下载音频、实录素材或第三方采样。
 - 运行方式：普通命中和击杀复用该 SoundWave，并通过不同音量与音高区分反馈。
 
+### 程序化分类拾取音效
+
+- 生成脚本：`Tools/GeneratePickupSounds.ps1`
+- UE 自动导入脚本：`Tools/ImportGeneratedPickupAudio.py`
+- 可复现源文件：`SourceAssets/Audio/SFX_Pickup_Ammo_01.wav`、`SFX_Pickup_Health_01.wav`、`SFX_Pickup_Supply_01.wav`
+- UE 目录：`Content/Pickups/Audio/Generated`
+- UE 对象路径：`/Game/Pickups/Audio/Generated/SFX_Pickup_Ammo_01.SFX_Pickup_Ammo_01`、`SFX_Pickup_Health_01.SFX_Pickup_Health_01`、`SFX_Pickup_Supply_01.SFX_Pickup_Supply_01`
+- 格式：48 kHz、单声道、16-bit PCM；时长分别为 0.30、0.42 和 0.50 秒。
+- WAV SHA-256：弹药 `90569CDB2A5E90A43391A25A60556E2D24EABF11DB2CD9B4265A864214959142`；医疗 `299AFBD87691BB686EF1192C854761D947E24F66C24BBFF65140385E15E4A5BD`；综合补给 `31DB92981993579140C17E23D1D9D23501ECFDD6F9EE7DC83CC27E6D67CA966D`。
+- 生成方式：三类声音使用独立固定随机种子、合成噪声和数学振荡器离线生成，不含下载音频、实录素材或第三方采样。
+- 运行方式：`FPSPickup` 按 `EFPSPickupType` 分别选择弹药金属/机械音、医疗柔和确认音和更饱满的综合补给音；不再使用 `Pop_05`。
+
 ### 程序化全息瞄具外框
 
 - 用途：约 1.5 倍 ADS 的枪上瞄具外观与瞄准参照。
@@ -67,10 +79,11 @@
 - 发布者：Deadghost Interactive
 - Fab 页面：https://www.fab.com/listings/8aeb9c48-b404-4dcd-9e56-1d0ecedba7f5
 - 状态：已在 Fab 账号中领取，并已建立、编译本机隔离审计工程；资源包本体仍未下载到正式项目，也尚未完成许可证、文件内容、依赖、兼容性与安全审计。
+- 2026-08-27 审计记录：Epic 设备授权成功，但隔离工具尝试用 Fab 客户端令牌访问 Launcher 清单服务时收到 401。该令牌的客户端/权限域与 Launcher 服务不匹配；审计结果为 0 字节、0 文件、未迁移，`safeToMigrate` 仍为 `false`。
 - 隔离边界：审计工程不属于本仓库；审计工具编译通过不代表资源包已经通过审计。
 - 当前使用情况：当前仓库和游戏不使用该包；现有枪械主体来自 Epic/UE 模板，程序化全息外框也不属于该包。
 - 风险表述：在完成下载与逐项审计前，不得把该包写成“已使用”“已验证”“兼容 UE 5.8”或“零风险”。
-- 后续：如需评估，先保存 Fab 获取记录和适用条款，在隔离测试项目或独立分支下载并审计，只迁移实际需要且确认可用的资产。
+- 后续：如需评估，只能在隔离项目中通过 UE 官方 Fab 面板执行 `Add to Project`，由官方前端取得签名下载信息后再做静态审计。不得读取、复用或提交 Epic Games Launcher 的缓存令牌，不得硬编码 Launcher 客户端凭据，也不得绕过 401。审计通过后才可迁移实际需要的资产。
 
 ## 发布前检查
 

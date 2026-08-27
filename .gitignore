@@ -10,6 +10,7 @@
 
 # IDE and generated project files
 *.sln
+*.slnx
 *.suo
 *.opensdf
 *.sdf
@@ -19,6 +20,7 @@
 *.xcworkspace
 /.idea/
 /.vscode/
+/.vsconfig
 *.code-workspace
 
 # Per-user Unreal content

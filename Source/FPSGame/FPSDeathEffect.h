@@ -37,6 +37,12 @@ private:
     TArray<TObjectPtr<UStaticMeshComponent>> BurstParts;
 
     UPROPERTY(VisibleAnywhere, Category="Death Effect")
+    TObjectPtr<UStaticMeshComponent> CoreFlash;
+
+    UPROPERTY(VisibleAnywhere, Category="Death Effect")
+    TArray<TObjectPtr<UStaticMeshComponent>> ShockwaveSegments;
+
+    UPROPERTY(VisibleAnywhere, Category="Death Effect")
     TObjectPtr<UPointLightComponent> BurstLight;
 
     UPROPERTY()
@@ -46,7 +52,7 @@ private:
     TArray<TObjectPtr<UMaterialInstanceDynamic>> PaletteMaterials;
 
     UPROPERTY(EditDefaultsOnly, Category="Death Effect", meta=(ClampMin="0.1"))
-    float EffectLifetime = 0.9f;
+    float EffectLifetime = 1.05f;
 
     UPROPERTY(EditDefaultsOnly, Category="Death Effect", meta=(ClampMin="0.0"))
     float Gravity = 620.0f;
@@ -55,7 +61,7 @@ private:
     float Drag = 1.6f;
 
     UPROPERTY(EditDefaultsOnly, Category="Death Effect", meta=(ClampMin="0.0"))
-    float InitialLightIntensity = 3200.0f;
+    float InitialLightIntensity = 5600.0f;
 
     TArray<FVector> PartVelocities;
     TArray<FRotator> PartRotationRates;

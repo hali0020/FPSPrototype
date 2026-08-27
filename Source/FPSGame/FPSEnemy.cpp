@@ -7,6 +7,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/World.h"
 #include "FPSDeathEffect.h"
+#include "FPSEnemySpawnEffect.h"
 #include "UObject/ConstructorHelpers.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HealthComponent.h"
@@ -126,6 +127,18 @@ void AFPSEnemy::BeginPlay()
 {
     Super::BeginPlay();
     ConfigureVariant();
+    if (UWorld* World = GetWorld())
+    {
+        FActorSpawnParameters SpawnParameters;
+        SpawnParameters.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        const float CapsuleHalfHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        World->SpawnActor<AFPSEnemySpawnEffect>(
+            AFPSEnemySpawnEffect::StaticClass(),
+            GetActorLocation() - FVector(0.0f, 0.0f, CapsuleHalfHeight),
+            FRotator::ZeroRotator,
+            SpawnParameters);
+    }
     HealthComponent->OnDeath.AddDynamic(this, &AFPSEnemy::HandleDeath);
     HealthComponent->OnHealthChanged.AddDynamic(this, &AFPSEnemy::HandleHealthChanged);
     AvoidanceSign = (GetUniqueID() % 2 == 0) ? 1.0f : -1.0f;

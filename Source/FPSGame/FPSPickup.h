@@ -47,6 +47,7 @@ private:
         const FHitResult& SweepResult);
 
     void ApplyVisualStyle();
+    USoundBase* GetPickupSound() const;
     void SetMeshColor(UStaticMeshComponent* Mesh, const FLinearColor& Color) const;
 
     UPROPERTY(VisibleAnywhere, Category="Pickup") TObjectPtr<USphereComponent> PickupSphere;
@@ -61,7 +62,9 @@ private:
     UPROPERTY(VisibleAnywhere, Category="Pickup") TObjectPtr<UPointLightComponent> AccentLight;
 
     UPROPERTY() TObjectPtr<UMaterialInterface> ColorMaterial;
-    UPROPERTY() TObjectPtr<USoundBase> PickupSound;
+    UPROPERTY() TObjectPtr<USoundBase> AmmoPickupSound;
+    UPROPERTY() TObjectPtr<USoundBase> HealthPickupSound;
+    UPROPERTY() TObjectPtr<USoundBase> SupplyPickupSound;
 
     UPROPERTY(EditAnywhere, Category="Pickup") EFPSPickupType PickupType = EFPSPickupType::Ammo;
     UPROPERTY(EditAnywhere, Category="Pickup", meta=(ClampMin="0")) int32 AmmoAmount = 30;

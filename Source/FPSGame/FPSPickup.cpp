@@ -62,8 +62,12 @@ AFPSPickup::AFPSPickup()
         TEXT("/Game/LevelPrototyping/Meshes/SM_Cylinder.SM_Cylinder"));
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> ColorMaterialAsset(
         TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
-    static ConstructorHelpers::FObjectFinder<USoundBase> PickupSoundAsset(
-        TEXT("/Game/InterfaceAndItemSounds/WAV/Pop_05_wav.Pop_05_wav"));
+    static ConstructorHelpers::FObjectFinder<USoundBase> AmmoPickupSoundAsset(
+        TEXT("/Game/Pickups/Audio/Generated/SFX_Pickup_Ammo_01.SFX_Pickup_Ammo_01"));
+    static ConstructorHelpers::FObjectFinder<USoundBase> HealthPickupSoundAsset(
+        TEXT("/Game/Pickups/Audio/Generated/SFX_Pickup_Health_01.SFX_Pickup_Health_01"));
+    static ConstructorHelpers::FObjectFinder<USoundBase> SupplyPickupSoundAsset(
+        TEXT("/Game/Pickups/Audio/Generated/SFX_Pickup_Supply_01.SFX_Pickup_Supply_01"));
 
     if (CaseMeshAsset.Succeeded())
     {
@@ -86,7 +90,9 @@ AFPSPickup::AFPSPickup()
             Mesh->SetMaterial(0, ColorMaterial);
         }
     }
-    if (PickupSoundAsset.Succeeded()) PickupSound = PickupSoundAsset.Object;
+    if (AmmoPickupSoundAsset.Succeeded()) AmmoPickupSound = AmmoPickupSoundAsset.Object;
+    if (HealthPickupSoundAsset.Succeeded()) HealthPickupSound = HealthPickupSoundAsset.Object;
+    if (SupplyPickupSoundAsset.Succeeded()) SupplyPickupSound = SupplyPickupSoundAsset.Object;
 
     CaseBase->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
     CaseBase->SetRelativeScale3D(FVector(0.58f, 0.40f, 0.28f));
@@ -189,12 +195,26 @@ void AFPSPickup::HandleOverlap(
     }
     Character->ShowPickupMessage(Message);
 
-    if (PickupSound)
+    if (USoundBase* SelectedPickupSound = GetPickupSound())
     {
-        const float Pitch = PickupType == EFPSPickupType::Supply ? 0.92f : 1.08f;
-        UGameplayStatics::PlaySound2D(this, PickupSound, 0.55f, Pitch);
+        const float Volume = PickupType == EFPSPickupType::Health ? 0.52f : 0.62f;
+        UGameplayStatics::PlaySound2D(this, SelectedPickupSound, Volume);
     }
     Destroy();
+}
+
+USoundBase* AFPSPickup::GetPickupSound() const
+{
+    switch (PickupType)
+    {
+    case EFPSPickupType::Health:
+        return HealthPickupSound.Get();
+    case EFPSPickupType::Supply:
+        return SupplyPickupSound.Get();
+    case EFPSPickupType::Ammo:
+    default:
+        return AmmoPickupSound.Get();
+    }
 }
 
 void AFPSPickup::ApplyVisualStyle()
