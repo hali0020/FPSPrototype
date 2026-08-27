@@ -27,9 +27,7 @@ struct FPSGAME_API FFPSFirstPersonAnimInstanceProxy : public FAnimInstanceProxy
 private:
     FAnimNode_CopyPoseFromMesh CopyPoseFromParent;
     FAnimNode_SequencePlayer_Standalone SprintPosePlayer;
-    FAnimNode_SequencePlayer_Standalone AimPosePlayer;
     FAnimNode_TwoWayBlend SprintBlend;
-    FAnimNode_TwoWayBlend AimBlend;
     FAnimNode_Slot ArmsSlot;
 };
 

@@ -15,6 +15,7 @@ public:
 private:
     void DrawDamageFeedback(class AFPSCharacter* Character);
     void DrawCrosshair(const FVector2D& Center, class AFPSCharacter* Character);
+    void DrawOpticReticle(const FVector2D& Center, class AFPSCharacter* Character);
     void DrawHitMarker(const FVector2D& Center, bool bKilledTarget);
     void DrawStatus(class AFPSCharacter* Character);
     void DrawPickupMessage(class AFPSCharacter* Character);

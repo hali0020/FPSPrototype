@@ -3,6 +3,7 @@
 #include "FPSEnemy.h"
 #include "FPSHUD.h"
 #include "FPSPickup.h"
+#include "FPSPlayerController.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -19,9 +20,17 @@ AFPSGameMode::AFPSGameMode()
 {
     DefaultPawnClass = AFPSCharacter::StaticClass();
     HUDClass = AFPSHUD::StaticClass();
+    PlayerControllerClass = AFPSPlayerController::StaticClass();
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
     if (CubeMesh.Succeeded()) ArenaCube = CubeMesh.Object;
+}
+
+void AFPSGameMode::InitGame(
+    const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+    Super::InitGame(MapName, Options, ErrorMessage);
+    bWaitingForStart = !UGameplayStatics::HasOption(Options, TEXT("AutoStart"));
 }
 
 void AFPSGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
@@ -100,7 +109,7 @@ void AFPSGameMode::BindPlayerHealth()
     }
 
     Player->GetHealthComponent()->OnDeath.AddUniqueDynamic(this, &AFPSGameMode::HandlePlayerDied);
-    if (!bMatchStarted)
+    if (!bWaitingForStart && !bMatchStarted)
     {
         bMatchStarted = true;
         StartNextWave();
@@ -280,13 +289,42 @@ void AFPSGameMode::HandlePlayerDied()
 {
     bGameOver = true;
     GetWorldTimerManager().ClearTimer(WaveTimer);
+    GetWorldTimerManager().ClearTimer(BindPlayerTimer);
+    GetWorldTimerManager().SetTimer(
+        DeathMenuTimer, this, &AFPSGameMode::ShowDeathMenu, DeathMenuDelay, false);
+}
+
+void AFPSGameMode::ShowDeathMenu()
+{
+    if (AFPSPlayerController* PlayerController =
+        Cast<AFPSPlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
+    {
+        PlayerController->ShowDeathMenu(Score);
+    }
+}
+
+void AFPSGameMode::RequestStartGame()
+{
+    if (bGameOver || !bWaitingForStart) return;
+
+    bWaitingForStart = false;
+    BindPlayerHealth();
 }
 
 void AFPSGameMode::RequestRestart()
 {
-    if (bGameOver && GetWorld())
+    if (GetWorld())
     {
-        UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/FirstPerson/Lvl_FirstPerson")), false,
+        UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/FirstPerson/Lvl_FirstPerson")), true,
+            TEXT("game=/Script/FPSGame.FPSGameMode?AutoStart=1"));
+    }
+}
+
+void AFPSGameMode::RequestMainMenu()
+{
+    if (GetWorld())
+    {
+        UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/FirstPerson/Lvl_FirstPerson")), true,
             TEXT("game=/Script/FPSGame.FPSGameMode"));
     }
 }

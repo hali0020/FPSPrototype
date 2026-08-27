@@ -19,6 +19,7 @@
 #include "GameFramework/PlayerController.h"
 #include "HealthComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -52,8 +53,8 @@ AFPSCharacter::AFPSCharacter()
     FirstPersonMesh->SetCastShadow(false);
 
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
-    // Keep view motion on the stable world-pose head. The owner-only mesh can then
-    // blend full-body sprint/ADS poses without injecting unwanted camera bob.
+    // Keep view motion on the stable world-pose head. Never drive this camera from
+    // a third-person full-body ADS pose: that lets the shoulders and rifle enter it.
     FirstPersonCamera->SetupAttachment(GetMesh(), TEXT("head"));
     FirstPersonCamera->SetRelativeLocationAndRotation(
         HipCameraRelativeLocation, FRotator(0.0f, 90.0f, -90.0f));
@@ -89,17 +90,57 @@ AFPSCharacter::AFPSCharacter()
     WeaponMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     WeaponMesh->SetCastShadow(false);
 
-    WeaponFireAudio = CreateDefaultSubobject<UAudioComponent>(TEXT("WeaponFireAudio"));
-    WeaponFireAudio->SetupAttachment(WeaponMesh, TEXT("Muzzle"));
-    WeaponFireAudio->bAutoActivate = false;
-    WeaponFireAudio->bOverrideAttenuation = true;
-    WeaponFireAudio->AttenuationOverrides.bAttenuate = true;
-    WeaponFireAudio->AttenuationOverrides.bSpatialize = true;
-    WeaponFireAudio->AttenuationOverrides.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
-    WeaponFireAudio->AttenuationOverrides.AttenuationShape = EAttenuationShape::Sphere;
-    WeaponFireAudio->AttenuationOverrides.AttenuationShapeExtents = FVector(180.0f, 0.0f, 0.0f);
-    WeaponFireAudio->AttenuationOverrides.FalloffDistance = 4200.0f;
-    WeaponFireAudio->SetVolumeMultiplier(0.78f);
+    // Eight voices cover the full 0.82 s report at the 0.12 s fire interval,
+    // so automatic fire never restarts and chops off the previous shot's tail.
+    for (int32 VoiceIndex = 0; VoiceIndex < 8; ++VoiceIndex)
+    {
+        UAudioComponent* FireVoice = CreateDefaultSubobject<UAudioComponent>(
+            *FString::Printf(TEXT("WeaponFireAudio_%02d"), VoiceIndex));
+        FireVoice->SetupAttachment(WeaponMesh, TEXT("Muzzle"));
+        FireVoice->bAutoActivate = false;
+        FireVoice->bOverrideAttenuation = true;
+        FireVoice->AttenuationOverrides.bAttenuate = true;
+        FireVoice->AttenuationOverrides.bSpatialize = true;
+        FireVoice->AttenuationOverrides.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
+        FireVoice->AttenuationOverrides.AttenuationShape = EAttenuationShape::Sphere;
+        FireVoice->AttenuationOverrides.AttenuationShapeExtents = FVector(180.0f, 0.0f, 0.0f);
+        FireVoice->AttenuationOverrides.FalloffDistance = 4200.0f;
+        FireVoice->SetVolumeMultiplier(0.82f);
+        WeaponFireAudioPool.Add(FireVoice);
+    }
+
+    auto CreateOpticFramePart = [this](
+        const TCHAR* Name, const FVector& Location, const FVector& Scale)
+    {
+        UStaticMeshComponent* Part = CreateDefaultSubobject<UStaticMeshComponent>(Name);
+        // This rifle has no optic socket, so mount the code-built sight directly
+        // in the rifle's local space above the receiver rail. Unlike the old
+        // camera-fixed frame, it now follows the weapon and is visible from hip.
+        Part->SetupAttachment(WeaponMesh);
+        Part->SetRelativeLocation(Location);
+        Part->SetRelativeScale3D(Scale);
+        Part->SetOnlyOwnerSee(true);
+        Part->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
+        Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        Part->SetCastShadow(false);
+        Part->SetVisibility(true);
+        OpticFrameMeshes.Add(Part);
+    };
+    // SKM_Rifle points down +Y, is about 6 cm wide, and its upper receiver is
+    // around Z=11..14. Keep the housing compact so it reads like a holographic
+    // sight instead of covering the whole screen during ADS.
+    constexpr float OpticRailY = 28.0f;
+    constexpr float OpticCenterZ = 19.0f;
+    CreateOpticFramePart(TEXT("OpticFrameTop"),
+        FVector(0.0f, OpticRailY, OpticCenterZ + 2.8f), FVector(0.085f, 0.012f, 0.006f));
+    CreateOpticFramePart(TEXT("OpticFrameBottom"),
+        FVector(0.0f, OpticRailY, OpticCenterZ - 2.8f), FVector(0.085f, 0.012f, 0.006f));
+    CreateOpticFramePart(TEXT("OpticFrameLeft"),
+        FVector(-4.0f, OpticRailY, OpticCenterZ), FVector(0.006f, 0.012f, 0.056f));
+    CreateOpticFramePart(TEXT("OpticFrameRight"),
+        FVector(4.0f, OpticRailY, OpticCenterZ), FVector(0.006f, 0.012f, 0.056f));
+    CreateOpticFramePart(TEXT("OpticMountBase"),
+        FVector(0.0f, OpticRailY - 0.8f, OpticCenterZ - 3.8f), FVector(0.055f, 0.035f, 0.008f));
 
     MuzzleFlashMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MuzzleFlashMesh"));
     MuzzleFlashMesh->SetupAttachment(WeaponMesh, TEXT("Muzzle"));
@@ -128,6 +169,10 @@ AFPSCharacter::AFPSCharacter()
         TEXT("/Game/Weapons/Rifle/Meshes/SKM_Rifle.SKM_Rifle"));
     static ConstructorHelpers::FObjectFinder<UStaticMesh> FlashCone(
         TEXT("/Engine/BasicShapes/Cone.Cone"));
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> OpticCube(
+        TEXT("/Engine/BasicShapes/Cube.Cube"));
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> OpticHousingMaterial(
+        TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
     static ConstructorHelpers::FObjectFinder<UAnimMontage> FireMontageAsset(
         TEXT("/Game/Variant_Shooter/Anims/FP_Rifle_Shoot_Montage.FP_Rifle_Shoot_Montage"));
     static ConstructorHelpers::FObjectFinder<UAnimSequence> ReloadAsset(
@@ -136,12 +181,10 @@ AFPSCharacter::AFPSCharacter()
         TEXT("/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_DryFire.MM_Rifle_DryFire"));
     static ConstructorHelpers::FObjectFinder<UAnimSequence> SprintAsset(
         TEXT("/Game/Characters/Mannequins/Anims/Rifle/Jog/MF_Rifle_Jog_Fwd.MF_Rifle_Jog_Fwd"));
-    static ConstructorHelpers::FObjectFinder<UAnimSequence> AimAsset(
-        TEXT("/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS.MF_Rifle_Idle_ADS"));
     static ConstructorHelpers::FObjectFinder<UAnimSequence> DeathAsset(
         TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01"));
     static ConstructorHelpers::FObjectFinder<USoundBase> FireSoundAsset(
-        TEXT("/Game/Weapons/GrenadeLauncher/Audio/FirstPersonTemplateWeaponFire02.FirstPersonTemplateWeaponFire02"));
+        TEXT("/Game/Weapons/Rifle/Audio/Generated/SFX_Rifle_Shot_01.SFX_Rifle_Shot_01"));
     static ConstructorHelpers::FObjectFinder<USoundBase> EmptySoundAsset(
         TEXT("/Game/InterfaceAndItemSounds/WAV/Click_03_wav.Click_03_wav"));
     static ConstructorHelpers::FObjectFinder<USoundBase> ReloadSoundAsset(
@@ -162,11 +205,21 @@ AFPSCharacter::AFPSCharacter()
     FirstPersonMesh->SetAnimInstanceClass(UFPSFirstPersonAnimInstance::StaticClass());
     if (RifleMesh.Succeeded()) WeaponMesh->SetSkeletalMeshAsset(RifleMesh.Object);
     if (FlashCone.Succeeded()) MuzzleFlashMesh->SetStaticMesh(FlashCone.Object);
+    if (OpticCube.Succeeded())
+    {
+        for (UStaticMeshComponent* Part : OpticFrameMeshes)
+        {
+            Part->SetStaticMesh(OpticCube.Object);
+            if (OpticHousingMaterial.Succeeded())
+            {
+                Part->SetMaterial(0, OpticHousingMaterial.Object);
+            }
+        }
+    }
     if (FireMontageAsset.Succeeded()) FireMontage = FireMontageAsset.Object;
     if (ReloadAsset.Succeeded()) ReloadAnimation = ReloadAsset.Object;
     if (DryFireAsset.Succeeded()) DryFireAnimation = DryFireAsset.Object;
     if (SprintAsset.Succeeded()) SprintAnimation = SprintAsset.Object;
-    if (AimAsset.Succeeded()) AimAnimation = AimAsset.Object;
     if (DeathAsset.Succeeded()) DeathAnimation = DeathAsset.Object;
     if (FireSoundAsset.Succeeded()) FireSound = FireSoundAsset.Object;
     if (EmptySoundAsset.Succeeded()) EmptySound = EmptySoundAsset.Object;
@@ -181,7 +234,12 @@ AFPSCharacter::AFPSCharacter()
 void AFPSCharacter::BeginPlay()
 {
     Super::BeginPlay();
+#if !UE_BUILD_SHIPPING
+    // Offline visual regression hook used by the automated screenshot pass.
+    bIsAiming = FParse::Param(FCommandLine::Get(), TEXT("FPSCaptureAim"));
+#endif
     NormalWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
+    UpdateMovementSpeed();
     AmmoInMagazine = MagazineSize;
     ReserveAmmo = FMath::Clamp(ReserveAmmo, 0, MaxReserveAmmo);
     if (ReloadAnimation) ReloadDuration = ReloadAnimation->GetPlayLength();
@@ -202,13 +260,35 @@ void AFPSCharacter::BeginPlay()
     {
         FlashMaterial->SetVectorParameterValue(TEXT("Color"), FLinearColor(1.0f, 0.12f, 0.01f));
     }
+    if (OpticFrameMeshes.Num() > 0 && OpticFrameMeshes[0])
+    {
+        if (UMaterialInterface* BaseMaterial = OpticFrameMeshes[0]->GetMaterial(0))
+        {
+            UMaterialInstanceDynamic* OpticMaterial = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+            OpticMaterial->SetVectorParameterValue(
+                TEXT("Color"), FLinearColor(0.004f, 0.006f, 0.009f, 1.0f));
+            OpticMaterial->SetVectorParameterValue(
+                TEXT("BaseColor"), FLinearColor(0.004f, 0.006f, 0.009f, 1.0f));
+            OpticMaterial->SetScalarParameterValue(TEXT("Roughness"), 0.46f);
+            OpticMaterial->SetScalarParameterValue(TEXT("Metallic"), 0.55f);
+            for (UStaticMeshComponent* Part : OpticFrameMeshes)
+            {
+                if (Part) Part->SetMaterial(0, OpticMaterial);
+            }
+        }
+    }
+    SetOpticVisible(true);
 }
 
 void AFPSCharacter::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
     RefreshSprintState();
-    if (!bIsDead) UpdateAim(DeltaSeconds);
+    if (!bIsDead)
+    {
+        UpdateAim(DeltaSeconds);
+        UpdateShotBloom(DeltaSeconds);
+    }
 }
 
 void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -227,7 +307,16 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
     PlayerInputComponent->BindAction("Aim", IE_Released, this, &AFPSCharacter::StopAim);
     PlayerInputComponent->BindAction("Sprint", IE_Pressed, this, &AFPSCharacter::StartSprint);
     PlayerInputComponent->BindAction("Sprint", IE_Released, this, &AFPSCharacter::StopSprint);
-    PlayerInputComponent->BindAction("Restart", IE_Pressed, this, &AFPSCharacter::RestartPressed);
+}
+
+void AFPSCharacter::CancelTransientInput()
+{
+    ForwardInputValue = 0.0f;
+    bSprintHeld = false;
+    bIsAiming = false;
+    StopFire();
+    SetSprinting(false);
+    StopJumping();
 }
 
 void AFPSCharacter::MoveForward(float Value)
@@ -245,9 +334,11 @@ void AFPSCharacter::StartFire()
     if (bIsDead || bIsSprinting)
     {
         bWantsToFire = false;
+        UpdateMovementSpeed();
         return;
     }
     bWantsToFire = true;
+    UpdateMovementSpeed();
     if (bIsReloading) return;
     FireShot();
     if (!bIsReloading && AmmoInMagazine > 0)
@@ -260,6 +351,7 @@ void AFPSCharacter::StopFire()
 {
     bWantsToFire = false;
     GetWorldTimerManager().ClearTimer(FireTimer);
+    UpdateMovementSpeed();
 }
 
 void AFPSCharacter::FireShot()
@@ -280,6 +372,8 @@ void AFPSCharacter::FireShot()
         else
         {
             PlayDryFireFeedback();
+            bWantsToFire = false;
+            UpdateMovementSpeed();
         }
         return;
     }
@@ -291,7 +385,13 @@ void AFPSCharacter::FireShot()
     GetWorldTimerManager().SetTimer(
         MuzzleFlashTimer, this, &AFPSCharacter::DisableMuzzleFlash, 0.04f, false);
     const FVector Start = FirstPersonCamera->GetComponentLocation();
-    const FVector End = Start + FirstPersonCamera->GetForwardVector() * WeaponRange;
+    const float SpreadRadians = FMath::DegreesToRadians(GetCurrentWeaponSpreadDegrees());
+    const FVector ShotDirection = FMath::VRandCone(
+        FirstPersonCamera->GetForwardVector(), SpreadRadians);
+    const FVector End = Start + ShotDirection * WeaponRange;
+    CurrentShotBloomDegrees = FMath::Min(
+        MaxShotBloomDegrees, CurrentShotBloomDegrees + ShotBloomPerShot);
+    LastShotTime = GetWorld()->GetTimeSeconds();
     FHitResult Hit;
     FCollisionQueryParams Params(SCENE_QUERY_STAT(WeaponTrace), true, this);
     if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
@@ -322,9 +422,20 @@ void AFPSCharacter::FireShot()
             Impact->FinishSpawning(ImpactTransform);
         }
     }
-    if (AmmoInMagazine <= 0 && ReserveAmmo > 0)
+    if (AmmoInMagazine <= 0)
     {
-        StartReload();
+        if (ReserveAmmo > 0)
+        {
+            StartReload();
+        }
+        else
+        {
+            // The final shot has no future timer callback when the magazine and
+            // reserve both reach zero. Explicitly release the firing slowdown.
+            GetWorldTimerManager().ClearTimer(FireTimer);
+            bWantsToFire = false;
+            UpdateMovementSpeed();
+        }
     }
 }
 
@@ -335,6 +446,7 @@ void AFPSCharacter::StartReload()
     bIsReloading = true;
     bIsAiming = false;
     SetSprinting(false);
+    UpdateMovementSpeed();
     PlayReloadAnimation();
     PlayLocalFeedback(WeaponFeedbackAudio, ReloadSound, 0.62f, 0.94f);
     GetWorldTimerManager().SetTimer(ReloadTimer, this, &AFPSCharacter::FinishReload, ReloadDuration, false);
@@ -348,6 +460,7 @@ void AFPSCharacter::FinishReload()
     AmmoInMagazine += Loaded;
     ReserveAmmo -= Loaded;
     bIsReloading = false;
+    UpdateMovementSpeed();
     RefreshSprintState();
     PlayLocalFeedback(WeaponFeedbackAudio, ReloadSound, 0.52f, 1.12f);
     if (bWantsToFire && AmmoInMagazine > 0 && !bIsDead && !bIsSprinting)
@@ -421,17 +534,86 @@ void AFPSCharacter::SetSprinting(bool bNewSprinting)
     if (bIsSprinting == bNewSprinting) return;
 
     bIsSprinting = bNewSprinting;
-    if (UCharacterMovementComponent* Movement = GetCharacterMovement())
-    {
-        Movement->MaxWalkSpeed = bIsSprinting
-            ? FMath::Max(SprintSpeed, NormalWalkSpeed)
-            : NormalWalkSpeed;
-    }
+    UpdateMovementSpeed();
 
     if (bIsSprinting)
     {
         bIsAiming = false;
         StopFire();
+    }
+}
+
+bool AFPSCharacter::IsActivelyFiring() const
+{
+    return bWantsToFire
+        && !bIsReloading
+        && AmmoInMagazine > 0
+        && !bIsDead
+        && !bIsSprinting;
+}
+
+void AFPSCharacter::UpdateMovementSpeed()
+{
+    UCharacterMovementComponent* Movement = GetCharacterMovement();
+    if (!Movement || NormalWalkSpeed <= 0.0f) return;
+
+    if (bIsSprinting)
+    {
+        Movement->MaxWalkSpeed = FMath::Max(SprintSpeed, NormalWalkSpeed);
+        return;
+    }
+
+    Movement->MaxWalkSpeed = NormalWalkSpeed
+        * (IsActivelyFiring() ? FiringMoveSpeedMultiplier : 1.0f);
+}
+
+float AFPSCharacter::GetCurrentWeaponSpreadDegrees() const
+{
+    const UCharacterMovementComponent* Movement = GetCharacterMovement();
+    const float SpeedAlpha = Movement
+        ? FMath::Clamp(Movement->Velocity.Size2D()
+            / FMath::Max(NormalWalkSpeed, 1.0f), 0.0f, 1.0f)
+        : 0.0f;
+    const float AimProgress = GetAimProgress();
+    const float MovementMultiplier = FMath::Lerp(1.0f, AimMoveSpreadMultiplier, AimProgress);
+    const float BloomMultiplier = FMath::Lerp(1.0f, AimBloomMultiplier, AimProgress);
+    const float AirSpread = Movement && Movement->IsFalling() ? AirSpreadDegrees : 0.0f;
+
+    return FMath::Lerp(HipBaseSpreadDegrees, AimBaseSpreadDegrees, AimProgress)
+        + MovingSpreadDegrees * SpeedAlpha * MovementMultiplier
+        + AirSpread
+        + CurrentShotBloomDegrees * BloomMultiplier;
+}
+
+float AFPSCharacter::GetAimProgress() const
+{
+    if (!FirstPersonCamera) return 0.0f;
+    const float FOVRange = HipFOV - AimFOV;
+    if (FOVRange <= KINDA_SMALL_NUMBER) return bIsAiming ? 1.0f : 0.0f;
+
+    return FMath::Clamp(
+        (HipFOV - FirstPersonCamera->FieldOfView) / FOVRange, 0.0f, 1.0f);
+}
+
+bool AFPSCharacter::IsAimViewSettled() const
+{
+    return bIsAiming && GetAimProgress() >= 0.75f;
+}
+
+void AFPSCharacter::UpdateShotBloom(float DeltaSeconds)
+{
+    if (CurrentShotBloomDegrees <= 0.0f || !GetWorld()) return;
+    if (GetWorld()->GetTimeSeconds() - LastShotTime < SpreadRecoveryDelay) return;
+
+    CurrentShotBloomDegrees = FMath::FInterpConstantTo(
+        CurrentShotBloomDegrees, 0.0f, DeltaSeconds, SpreadRecoveryRate);
+}
+
+void AFPSCharacter::SetOpticVisible(bool bVisible)
+{
+    for (UStaticMeshComponent* Part : OpticFrameMeshes)
+    {
+        if (Part) Part->SetVisibility(bVisible);
     }
 }
 
@@ -444,12 +626,25 @@ void AFPSCharacter::PlayFireAnimation()
             AnimInstance->Montage_Play(FireMontage, 1.0f);
         }
     }
-    if (WeaponFireAudio && FireSound)
+    if (FireSound && !WeaponFireAudioPool.IsEmpty())
     {
-        if (WeaponFireAudio->IsPlaying()) WeaponFireAudio->Stop();
-        WeaponFireAudio->SetSound(FireSound);
-        WeaponFireAudio->SetPitchMultiplier(FMath::FRandRange(0.97f, 1.03f));
-        WeaponFireAudio->Play();
+        UAudioComponent* FireVoice = nullptr;
+        for (int32 Offset = 0; Offset < WeaponFireAudioPool.Num(); ++Offset)
+        {
+            const int32 VoiceIndex = (NextFireAudioVoice + Offset) % WeaponFireAudioPool.Num();
+            if (WeaponFireAudioPool[VoiceIndex] && !WeaponFireAudioPool[VoiceIndex]->IsPlaying())
+            {
+                FireVoice = WeaponFireAudioPool[VoiceIndex];
+                NextFireAudioVoice = (VoiceIndex + 1) % WeaponFireAudioPool.Num();
+                break;
+            }
+        }
+        if (FireVoice)
+        {
+            FireVoice->SetSound(FireSound);
+            FireVoice->SetPitchMultiplier(FMath::FRandRange(0.985f, 1.015f));
+            FireVoice->Play();
+        }
     }
 }
 
@@ -598,11 +793,17 @@ void AFPSCharacter::HandleDeath()
     bWantsToFire = false;
     bIsAiming = false;
     bIsReloading = false;
+    CurrentShotBloomDegrees = 0.0f;
+    LastShotTime = -BIG_NUMBER;
+    SetOpticVisible(false);
     StopFire();
     FirstPersonCamera->SetFieldOfView(HipFOV);
     FirstPersonCamera->FirstPersonFieldOfView = HipFirstPersonFOV;
     FirstPersonCamera->SetRelativeLocation(HipCameraRelativeLocation);
-    if (WeaponFireAudio) WeaponFireAudio->Stop();
+    for (UAudioComponent* FireVoice : WeaponFireAudioPool)
+    {
+        if (FireVoice) FireVoice->Stop();
+    }
     if (WeaponFeedbackAudio) WeaponFeedbackAudio->Stop();
     if (HitConfirmAudio) HitConfirmAudio->Stop();
     PlayPlayerVoice(PlayerDeathSound, true);
@@ -637,20 +838,4 @@ void AFPSCharacter::HandleDeath()
     StopJumping();
     GetCharacterMovement()->StopMovementImmediately();
     GetCharacterMovement()->DisableMovement();
-}
-
-void AFPSCharacter::RestartPressed()
-{
-    if (!bIsDead || !GetWorld()) return;
-
-    if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-    {
-        PlayerController->ResetIgnoreMoveInput();
-        PlayerController->ResetIgnoreLookInput();
-    }
-
-    if (AFPSGameMode* GameMode = GetWorld()->GetAuthGameMode<AFPSGameMode>())
-    {
-        GameMode->RequestRestart();
-    }
 }

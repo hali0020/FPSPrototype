@@ -7,7 +7,8 @@ public class FPSGame : ModuleRules
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new[]
         {
-            "Core", "CoreUObject", "Engine", "InputCore", "AnimGraphRuntime"
+            "Core", "CoreUObject", "Engine", "InputCore", "AnimGraphRuntime",
+            "UMG", "Slate", "SlateCore"
         });
     }
 }

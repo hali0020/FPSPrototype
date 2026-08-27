@@ -1,8 +1,10 @@
 #include "FPSHUD.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
+#include "Camera/PlayerCameraManager.h"
 #include "FPSCharacter.h"
 #include "FPSGameMode.h"
+#include "GameFramework/PlayerController.h"
 #include "HealthComponent.h"
 
 void AFPSHUD::DrawHUD()
@@ -11,12 +13,21 @@ void AFPSHUD::DrawHUD()
     if (!Canvas) return;
     AFPSCharacter* Character = Cast<AFPSCharacter>(GetOwningPawn());
     AFPSGameMode* GameMode = GetWorld() ? GetWorld()->GetAuthGameMode<AFPSGameMode>() : nullptr;
+    if (GameMode && GameMode->IsWaitingForStart()) return;
     if (Character && !Character->IsDead())
     {
         DrawDamageFeedback(Character);
-        if (!Character->IsSprinting() && !Character->IsAiming())
+        if (!Character->IsSprinting())
         {
-            DrawCrosshair(FVector2D(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f), Character);
+            const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+            if (Character->IsAimViewSettled())
+            {
+                DrawOpticReticle(Center, Character);
+            }
+            else
+            {
+                DrawCrosshair(Center, Character);
+            }
         }
         DrawStatus(Character);
         DrawPickupMessage(Character);
@@ -47,12 +58,58 @@ void AFPSHUD::DrawDamageFeedback(AFPSCharacter* Character)
 
 void AFPSHUD::DrawCrosshair(const FVector2D& Center, AFPSCharacter* Character)
 {
-    const float Gap = 5.0f;
+    const float SpreadDegrees = Character ? Character->GetCurrentWeaponSpreadDegrees() : 0.0f;
+    const float CurrentFOV = PlayerOwner && PlayerOwner->PlayerCameraManager
+        ? PlayerOwner->PlayerCameraManager->GetFOVAngle()
+        : 90.0f;
+    const float FOVProjectionScale = FMath::Max(
+        FMath::Tan(FMath::DegreesToRadians(FMath::Clamp(CurrentFOV, 1.0f, 179.0f) * 0.5f)),
+        KINDA_SMALL_NUMBER);
+    const float ProjectedSpread = FMath::Tan(FMath::DegreesToRadians(SpreadDegrees))
+        / FOVProjectionScale * Canvas->ClipX * 0.5f;
+    const float MaxGap = FMath::Min(Canvas->ClipX, Canvas->ClipY) * 0.15f;
+    const float Gap = FMath::Clamp(4.0f + ProjectedSpread, 5.0f, MaxGap);
     const float Length = 9.0f;
     DrawLine(Center.X - Gap - Length, Center.Y, Center.X - Gap, Center.Y, FLinearColor::White, 2.0f);
     DrawLine(Center.X + Gap, Center.Y, Center.X + Gap + Length, Center.Y, FLinearColor::White, 2.0f);
     DrawLine(Center.X, Center.Y - Gap - Length, Center.X, Center.Y - Gap, FLinearColor::White, 2.0f);
     DrawLine(Center.X, Center.Y + Gap, Center.X, Center.Y + Gap + Length, FLinearColor::White, 2.0f);
+    if (Character && Character->IsHitMarkerVisible())
+    {
+        DrawHitMarker(Center, Character->WasLastHitKill());
+    }
+}
+
+void AFPSHUD::DrawOpticReticle(const FVector2D& Center, AFPSCharacter* Character)
+{
+    constexpr int32 SegmentCount = 40;
+    constexpr float RingRadius = 18.0f;
+    const FLinearColor Shadow(0.0f, 0.0f, 0.0f, 0.72f);
+    const FLinearColor Reticle(1.0f, 0.08f, 0.025f, 0.92f);
+
+    for (int32 Segment = 0; Segment < SegmentCount; ++Segment)
+    {
+        const float AngleA = UE_TWO_PI * Segment / static_cast<float>(SegmentCount);
+        const float AngleB = UE_TWO_PI * (Segment + 1) / static_cast<float>(SegmentCount);
+        const FVector2D PointA = Center + FVector2D(FMath::Cos(AngleA), FMath::Sin(AngleA)) * RingRadius;
+        const FVector2D PointB = Center + FVector2D(FMath::Cos(AngleB), FMath::Sin(AngleB)) * RingRadius;
+        DrawLine(PointA.X, PointA.Y, PointB.X, PointB.Y, Shadow, 3.0f);
+        DrawLine(PointA.X, PointA.Y, PointB.X, PointB.Y, Reticle, 1.25f);
+    }
+
+    constexpr float Gap = 5.0f;
+    constexpr float LineLength = 8.0f;
+    DrawLine(Center.X - Gap - LineLength, Center.Y, Center.X - Gap, Center.Y, Shadow, 3.0f);
+    DrawLine(Center.X + Gap, Center.Y, Center.X + Gap + LineLength, Center.Y, Shadow, 3.0f);
+    DrawLine(Center.X, Center.Y - Gap - LineLength, Center.X, Center.Y - Gap, Shadow, 3.0f);
+    DrawLine(Center.X, Center.Y + Gap, Center.X, Center.Y + Gap + LineLength, Shadow, 3.0f);
+    DrawLine(Center.X - Gap - LineLength, Center.Y, Center.X - Gap, Center.Y, Reticle, 1.5f);
+    DrawLine(Center.X + Gap, Center.Y, Center.X + Gap + LineLength, Center.Y, Reticle, 1.5f);
+    DrawLine(Center.X, Center.Y - Gap - LineLength, Center.X, Center.Y - Gap, Reticle, 1.5f);
+    DrawLine(Center.X, Center.Y + Gap, Center.X, Center.Y + Gap + LineLength, Reticle, 1.5f);
+    DrawRect(Shadow, Center.X - 3.0f, Center.Y - 3.0f, 6.0f, 6.0f);
+    DrawRect(Reticle, Center.X - 1.5f, Center.Y - 1.5f, 3.0f, 3.0f);
+
     if (Character && Character->IsHitMarkerVisible())
     {
         DrawHitMarker(Center, Character->WasLastHitKill());
@@ -190,7 +247,7 @@ void AFPSHUD::DrawDeathScreen(AFPSCharacter* Character, AFPSGameMode* GameMode)
     if (Elapsed > 1.0f)
     {
         const float Pulse = 0.70f + 0.30f * FMath::Sin(Elapsed * 4.0f);
-        DrawCentered(TEXT("PRESS ENTER TO RESTART"), GEngine->GetSmallFont(),
+        DrawCentered(TEXT("ENTER: RESTART  |  MORE OPTIONS IN DEATH MENU"), GEngine->GetSmallFont(),
             CenterY + 55.0f, 1.0f, FLinearColor(1.0f, 1.0f, 1.0f, TextAlpha * Pulse));
     }
 }

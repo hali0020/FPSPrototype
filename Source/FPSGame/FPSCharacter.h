@@ -29,9 +29,12 @@ public:
     UFUNCTION(BlueprintPure, Category="Weapon") int32 GetMaxReserveAmmo() const { return MaxReserveAmmo; }
     UFUNCTION(BlueprintPure, Category="Weapon") bool IsReloading() const { return bIsReloading; }
     UFUNCTION(BlueprintPure, Category="Weapon") bool IsAiming() const { return bIsAiming; }
+    UFUNCTION(BlueprintPure, Category="Weapon") float GetAimProgress() const;
+    UFUNCTION(BlueprintPure, Category="Weapon") bool IsAimViewSettled() const;
     UFUNCTION(BlueprintPure, Category="Movement") bool IsSprinting() const { return bIsSprinting; }
     UFUNCTION(BlueprintPure, Category="Weapon") bool IsHitMarkerVisible() const;
     UFUNCTION(BlueprintPure, Category="Weapon") bool WasLastHitKill() const { return bLastHitWasKill; }
+    UFUNCTION(BlueprintPure, Category="Weapon") float GetCurrentWeaponSpreadDegrees() const;
     UFUNCTION(BlueprintPure, Category="Health") UHealthComponent* GetHealthComponent() const { return HealthComponent; }
     UFUNCTION(BlueprintPure, Category="Health") bool IsDead() const { return bIsDead; }
     UFUNCTION(BlueprintPure, Category="Health") float GetDeathElapsedTime() const;
@@ -42,8 +45,8 @@ public:
     const FString& GetPickupMessage() const { return PickupMessage; }
     float GetPickupMessageAlpha() const;
     UAnimSequence* GetSprintPoseAnimation() const { return SprintAnimation; }
-    UAnimSequence* GetAimPoseAnimation() const { return AimAnimation; }
     float GetSprintPosePlayRate() const { return SprintAnimationPlayRate; }
+    void CancelTransientInput();
 
 protected:
     virtual void BeginPlay() override;
@@ -63,6 +66,10 @@ private:
     void StopSprint();
     void RefreshSprintState();
     void SetSprinting(bool bNewSprinting);
+    bool IsActivelyFiring() const;
+    void UpdateMovementSpeed();
+    void UpdateShotBloom(float DeltaSeconds);
+    void SetOpticVisible(bool bVisible);
     void PlayFireAnimation();
     void PlayReloadAnimation();
     void PlayDryFireFeedback();
@@ -71,7 +78,6 @@ private:
     bool PlayPlayerVoice(USoundBase* Sound, bool bInterruptCurrent);
     void RegisterHit(bool bKilledTarget);
     void DisableMuzzleFlash();
-    void RestartPressed();
     UFUNCTION() void HandleHealthChanged(float Health, float MaxHealth);
     UFUNCTION() void HandleDeath();
 
@@ -83,7 +89,10 @@ private:
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<USkeletalMeshComponent> WeaponMesh;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UStaticMeshComponent> MuzzleFlashMesh;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UPointLightComponent> MuzzleFlash;
-    UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UAudioComponent> WeaponFireAudio;
+    UPROPERTY(VisibleAnywhere, Category="Components")
+    TArray<TObjectPtr<UAudioComponent>> WeaponFireAudioPool;
+    UPROPERTY(VisibleAnywhere, Category="Components")
+    TArray<TObjectPtr<UStaticMeshComponent>> OpticFrameMeshes;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UAudioComponent> WeaponFeedbackAudio;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UAudioComponent> HitConfirmAudio;
     UPROPERTY(VisibleAnywhere, Category="Components") TObjectPtr<UAudioComponent> PlayerVoiceAudio;
@@ -92,7 +101,6 @@ private:
     UPROPERTY() TObjectPtr<UAnimSequence> ReloadAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> DryFireAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> SprintAnimation;
-    UPROPERTY() TObjectPtr<UAnimSequence> AimAnimation;
     UPROPERTY() TObjectPtr<UAnimSequence> DeathAnimation;
     UPROPERTY() TObjectPtr<USoundBase> FireSound;
     UPROPERTY() TObjectPtr<USoundBase> EmptySound;
@@ -116,13 +124,13 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="Feedback", meta=(ClampMin="0.1"))
     float PickupMessageDuration = 1.4f;
     UPROPERTY(EditDefaultsOnly, Category="Aim") float HipFOV = 90.0f;
-    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFOV = 58.0f;
-    UPROPERTY(EditDefaultsOnly, Category="Aim") float HipFirstPersonFOV = 82.0f;
-    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFirstPersonFOV = 68.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFOV = 60.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float HipFirstPersonFOV = 88.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Aim") float AimFirstPersonFOV = 82.0f;
     UPROPERTY(EditDefaultsOnly, Category="Aim")
-    FVector HipCameraRelativeLocation = FVector(6.0f, 5.89f, 0.0f);
+    FVector HipCameraRelativeLocation = FVector(13.5f, 5.89f, -2.0f);
     UPROPERTY(EditDefaultsOnly, Category="Aim")
-    FVector AimCameraRelativeLocation = FVector(3.2f, 5.89f, 0.0f);
+    FVector AimCameraRelativeLocation = FVector(13.0f, 8.0f, 5.5f);
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint") float SprintFOV = 96.0f;
     UPROPERTY(EditDefaultsOnly, Category="Aim") float AimInterpSpeed = 12.0f;
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.0"))
@@ -131,6 +139,28 @@ private:
     float SprintForwardThreshold = 0.2f;
     UPROPERTY(EditDefaultsOnly, Category="Movement|Sprint", meta=(ClampMin="0.1"))
     float SprintAnimationPlayRate = 1.15f;
+    UPROPERTY(EditDefaultsOnly, Category="Movement|Combat", meta=(ClampMin="0.1", ClampMax="1.0"))
+    float FiringMoveSpeedMultiplier = 0.65f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float HipBaseSpreadDegrees = 0.35f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float AimBaseSpreadDegrees = 0.08f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float MovingSpreadDegrees = 1.15f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float AirSpreadDegrees = 2.0f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float AimMoveSpreadMultiplier = 0.35f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float ShotBloomPerShot = 0.18f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float MaxShotBloomDegrees = 1.35f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0", ClampMax="1.0"))
+    float AimBloomMultiplier = 0.45f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float SpreadRecoveryDelay = 0.18f;
+    UPROPERTY(EditDefaultsOnly, Category="Weapon|Spread", meta=(ClampMin="0.0"))
+    float SpreadRecoveryRate = 2.6f;
 
     int32 AmmoInMagazine = 30;
     int32 ReserveAmmo = 90;
@@ -149,6 +179,9 @@ private:
     float LastKnownHealth = 0.0f;
     float DeathStartTime = 0.0f;
     float PickupMessageEndTime = 0.0f;
+    float CurrentShotBloomDegrees = 0.0f;
+    float LastShotTime = -BIG_NUMBER;
+    int32 NextFireAudioVoice = 0;
     FString PickupMessage;
     FTimerHandle FireTimer;
     FTimerHandle ReloadTimer;

@@ -10,19 +10,14 @@ void FFPSFirstPersonAnimInstanceProxy::Initialize(UAnimInstance* AnimInstance)
     CopyPoseFromParent.bCopyCustomAttributes = true;
 
     SprintPosePlayer.SetLoopAnimation(true);
-    AimPosePlayer.SetLoopAnimation(true);
     SprintBlend.AlphaInputType = EAnimAlphaInputType::Float;
     SprintBlend.Alpha = 0.0f;
     SprintBlend.A.SetLinkNode(&CopyPoseFromParent);
     SprintBlend.B.SetLinkNode(&SprintPosePlayer);
-    AimBlend.AlphaInputType = EAnimAlphaInputType::Float;
-    AimBlend.Alpha = 0.0f;
-    AimBlend.A.SetLinkNode(&SprintBlend);
-    AimBlend.B.SetLinkNode(&AimPosePlayer);
 
     ArmsSlot.SlotName = TEXT("Arms");
     ArmsSlot.bAlwaysUpdateSourcePose = true;
-    ArmsSlot.Source.SetLinkNode(&AimBlend);
+    ArmsSlot.Source.SetLinkNode(&SprintBlend);
 
     FAnimationInitializeContext InitializeContext(this);
     ArmsSlot.Initialize_AnyThread(InitializeContext);
@@ -37,18 +32,13 @@ void FFPSFirstPersonAnimInstanceProxy::PreUpdate(UAnimInstance* AnimInstance, fl
         ? Cast<AFPSCharacter>(AnimInstance->TryGetPawnOwner())
         : nullptr;
     const float SprintTarget = Character && Character->IsSprinting() ? 1.0f : 0.0f;
-    const float AimTarget = Character && Character->IsAiming() ? 1.0f : 0.0f;
     if (Character)
     {
         SprintPosePlayer.SetSequence(Character->GetSprintPoseAnimation());
         SprintPosePlayer.SetPlayRate(Character->GetSprintPosePlayRate());
-        AimPosePlayer.SetSequence(Character->GetAimPoseAnimation());
-        AimPosePlayer.SetPlayRate(1.0f);
     }
     SprintBlend.Alpha = FMath::FInterpTo(
         SprintBlend.Alpha, SprintTarget, DeltaSeconds, 10.0f);
-    AimBlend.Alpha = FMath::FInterpTo(
-        AimBlend.Alpha, AimTarget, DeltaSeconds, 14.0f);
 }
 
 void FFPSFirstPersonAnimInstanceProxy::UpdateAnimationNode(const FAnimationUpdateContext& Context)
