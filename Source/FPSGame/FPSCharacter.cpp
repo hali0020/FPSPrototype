@@ -21,10 +21,27 @@
 #include "HealthComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
+#include "Misc/PackageName.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "UnrealClient.h"
 #include "UObject/ConstructorHelpers.h"
+#include "UObject/UObjectGlobals.h"
+
+namespace
+{
+USoundBase* LoadOptionalLocalSound(const TCHAR* AssetPath)
+{
+    const FString PackageName = FPackageName::ObjectPathToPackageName(FString(AssetPath));
+    if (!FPackageName::DoesPackageExist(PackageName))
+    {
+        return nullptr;
+    }
+
+    return LoadObject<USoundBase>(
+        nullptr, AssetPath, FStringView{}, LOAD_NoWarn | LOAD_Quiet);
+}
+}
 
 AFPSCharacter::AFPSCharacter()
 {
@@ -200,15 +217,15 @@ AFPSCharacter::AFPSCharacter()
         TEXT("/Game/Characters/Mannequins/Anims/Death/MM_Death_Front_01.MM_Death_Front_01"));
     static ConstructorHelpers::FObjectFinder<USoundBase> FireSoundAsset(
         TEXT("/Game/Weapons/Rifle/Audio/Generated/SFX_Rifle_Shot_01.SFX_Rifle_Shot_01"));
-    static ConstructorHelpers::FObjectFinder<USoundBase> EmptySoundAsset(
+    USoundBase* const EmptySoundAsset = LoadOptionalLocalSound(
         TEXT("/Game/InterfaceAndItemSounds/WAV/Click_03_wav.Click_03_wav"));
-    static ConstructorHelpers::FObjectFinder<USoundBase> ReloadSoundAsset(
+    USoundBase* const ReloadSoundAsset = LoadOptionalLocalSound(
         TEXT("/Game/InterfaceAndItemSounds/WAV/Flick_Switch_01_wav.Flick_Switch_01_wav"));
     static ConstructorHelpers::FObjectFinder<USoundBase> HitConfirmSoundAsset(
         TEXT("/Game/Weapons/Rifle/Audio/Generated/SFX_HitConfirm_01.SFX_HitConfirm_01"));
-    static ConstructorHelpers::FObjectFinder<USoundBase> PlayerHurtSoundAsset(
+    USoundBase* const PlayerHurtSoundAsset = LoadOptionalLocalSound(
         TEXT("/Game/HumanVocalizations/HumanMaleD/Wavs/voice_male_d_hurt_pain_low_02.voice_male_d_hurt_pain_low_02"));
-    static ConstructorHelpers::FObjectFinder<USoundBase> PlayerDeathSoundAsset(
+    USoundBase* const PlayerDeathSoundAsset = LoadOptionalLocalSound(
         TEXT("/Game/HumanVocalizations/HumanMaleD/Wavs/voice_male_d_death_05.voice_male_d_death_05"));
 
     if (MannyMesh.Succeeded())
@@ -237,11 +254,11 @@ AFPSCharacter::AFPSCharacter()
     if (SprintAsset.Succeeded()) SprintAnimation = SprintAsset.Object;
     if (DeathAsset.Succeeded()) DeathAnimation = DeathAsset.Object;
     if (FireSoundAsset.Succeeded()) FireSound = FireSoundAsset.Object;
-    if (EmptySoundAsset.Succeeded()) EmptySound = EmptySoundAsset.Object;
-    if (ReloadSoundAsset.Succeeded()) ReloadSound = ReloadSoundAsset.Object;
+    if (EmptySoundAsset) EmptySound = EmptySoundAsset;
+    if (ReloadSoundAsset) ReloadSound = ReloadSoundAsset;
     if (HitConfirmSoundAsset.Succeeded()) HitConfirmSound = HitConfirmSoundAsset.Object;
-    if (PlayerHurtSoundAsset.Succeeded()) PlayerHurtSound = PlayerHurtSoundAsset.Object;
-    if (PlayerDeathSoundAsset.Succeeded()) PlayerDeathSound = PlayerDeathSoundAsset.Object;
+    if (PlayerHurtSoundAsset) PlayerHurtSound = PlayerHurtSoundAsset;
+    if (PlayerDeathSoundAsset) PlayerDeathSound = PlayerDeathSoundAsset;
 
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 }

@@ -12,6 +12,7 @@
 6. 不要把密码、令牌、API Key、证书、Fab/Vault 缓存、绝对路径、账号信息或本地日志放进仓库。
 7. 当前 Windows 渲染目标是 DX12 + Shader Model 6。Nanite 资源依赖 SM6，不要改回 SM5。
 8. 正式命中特效是原生 C++ FPSImpactEffect。不要直接重新接入 /Game/Variant_Combat/VFX/NS_Damage；它曾在 Cook 后的真实运行包中触发 Niagara 序列化崩溃。
+9. 本机身份和路径只能写入已忽略的 `.local/private.json`；每次提交前必须运行 `Tools/CheckPrivacy.ps1`。不要使用 `git add -f` 强制提交该文件。
 
 ## 二、项目固定信息
 
@@ -19,6 +20,8 @@
 - Unreal Engine：5.8.2
 - 项目文件：FPSPrototype.uproject
 - C++ 模块名：FPSGame
+- Editor Target：FPSGameEditor
+- Game Target：FPSGame
 - 默认地图：/Game/FirstPerson/Lvl_FirstPerson
 - 默认 GameMode：/Script/FPSGame.FPSGameMode
 - Windows 渲染：DX12、SM6
@@ -34,7 +37,7 @@
 ### 必装软件
 
 - Unreal Engine 5.8.2
-- Visual Studio 2022
+- Visual Studio（支持 UE 5.8 的版本；使用仓库 `.vsconfig` 安装组件）
   - 使用 C++ 的游戏开发
   - Windows 10/11 SDK
   - Unreal Engine 工具
@@ -51,13 +54,22 @@
 
 不要使用 GitHub 的“Download ZIP”代替克隆。ZIP 可能只包含 Git LFS 指针，导致 .uasset 看似存在但无法被 UE 读取。
 
+正式工作副本必须使用全 ASCII 路径，例如 `D:\UEProjects\FPSPrototype`。当前 UE 5.8/MSVC 组合在含中文等非 ASCII 字符的工程路径下可能因 PCH 路径而失败；这不是源码错误。
+
 克隆完成后：
 
 1. 确认 git status 没有异常修改。
-2. 关联 UE 5.8.2。
-3. 右键 FPSPrototype.uproject 生成 Visual Studio 项目文件。
-4. 打开解决方案，选择 Development Editor、Win64 编译；或直接打开项目并同意重建模块。
-5. 首次启动会重新生成缓存和二进制文件，耗时较长属于正常现象。
+2. 创建本地隐私文件，并设置仓库级通用提交身份：
+
+       Copy-Item .local/private.example.json .local/private.json
+       git config --local user.name "FPSPrototype Contributors"
+       git config --local user.email "contributors@users.noreply.github.com"
+       powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tools\CheckPrivacy.ps1
+
+3. 关联 UE 5.8.2。
+4. 右键 FPSPrototype.uproject 生成 Visual Studio 项目文件。
+5. 打开解决方案，选择 `FPSGameEditor` / Development Editor / Win64 编译；或直接打开项目并同意重建模块。
+6. 首次启动会重新生成缓存和二进制文件，耗时较长属于正常现象。
 
 ## 四、每天开始和结束时的同步流程
 
@@ -78,12 +90,14 @@
 
     git status
     git diff -- Source Config README.md DEVELOPMENT_GUIDE.md THIRD_PARTY_ASSETS.md
-    git add .
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tools\CheckPrivacy.ps1
+    git add -A
     git status
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tools\CheckPrivacy.ps1
     git commit -m "清楚描述本次修改"
     git push
 
-git diff 主要用于检查文本；.uasset 和 .umap 只能看到文件发生变化，无法查看内部差异。推送结束后再运行一次 git status，应显示分支与 origin/main 同步且工作区干净。
+git diff 主要用于检查文本；.uasset 和 .umap 只能看到文件发生变化，无法查看内部差异。第一次隐私检查覆盖已跟踪工作树，第二次还会检查真正将要提交的暂存区。推送结束后再运行一次 git status，应显示分支与 origin/main 同步且工作区干净。
 
 ### 大功能建议使用分支
 
@@ -183,12 +197,25 @@ Lvl_FirstPerson 使用外部 Actor/Object 数据。提交地图变化时必须�
 - Build/*/FileOpenOrder/
 - Content/Developers/
 - 每用户编辑器配置
+- .local/private.json
+- .local-licensed-assets/
+- Content/HumanVocalizations/
+- Content/InterfaceAndItemSounds/
+- Content/FPS_Weapon_Bundle/
 
 不要为了跨环境直接运行而提交 `Saved/StagedBuilds` 或 EXE。新环境应从源码重新编译或打包。打包产物如需分发，应使用独立发布流程，而不是塞进 Git 历史。
 
 > **旧 StagedBuild 警告：** `Saved/StagedBuilds/Windows` 可能仍是上一次打包结果。Editor 编译、Live Coding、资源导入和 Data Validation 都不会自动刷新其中的 EXE。验证最新修改时必须完成新的 Cook + Stage，核对输出时间，并启动本次生成的 EXE；不要用旧 Staged EXE 判断当前源码是否生效。
 
 如果编译缓存损坏，通常可以在关闭 UE/VS 后删除 Binaries 和 Intermediate 再重建。删除 Saved 前要先检查其中是否有需要恢复的 Autosaves；不要把删除整个工程目录当成排错步骤。
+
+### 本地隐私文件与提交身份
+
+`.local/private.json` 是项目内唯一的本机身份/路径清单，仓库只提交空值模板 `.local/private.example.json`。可填写显示名、邮箱、Windows 用户名、计算机名、项目/引擎路径和账号别名；`privacyScan.blockedLiterals` 用于补充历史值或其他必须阻止的准确字面量。检查脚本不回显匹配行或私密值，只报告来源、类别、文件和行号。它还会拒绝 `.local/private.json` 以及四个本地授权资源目录被 `git add -f` 强制加入索引。
+
+`.gitignore` 不是加密。不要在 JSON 中保存密码、token、API Key、私钥或证书；这些值应使用 Windows Credential Manager、环境变量或专用秘密存储。Git 远程地址本来就位于不跟踪的 `.git/config`，登录凭据由凭据管理器保管。仓库级 `user.name/user.email` 必须使用上文的通用项目身份，检查脚本会拒绝非通用提交身份。
+
+隐私脚本只解析受支持的文本文件，不解析 `.uasset`、`.umap` 等二进制资产的内部导入路径、作者字段或自定义元数据。新导入、来源不明或准备上传的二进制资产仍必须按本指南的资源审计流程单独检查。
 
 ## 九、资源与许可证安全
 
@@ -200,6 +227,8 @@ Lvl_FirstPerson 使用外部 Actor/Object 数据。提交地图变化时必须�
 - 保存 Fab 页面、获取记录和当时适用条款的截图；“免费”不等于可以单独重新分发源文件。
 
 当前第三方声音只保留了游戏实际使用的子集。当前没有训练或克隆任何人的音色，声音是资源包内的短叫声和反馈音。
+
+本地许可语音和界面音效位于已忽略的 `Content/HumanVocalizations`、`Content/InterfaceAndItemSounds` 和 `.local-licensed-assets`。C++ 使用安静的可选加载：存在时正常引用并进入 Cook，干净克隆缺失时不产生 CDO Error，并安全回退为无对应语音/空仓/换弹声。
 
 当前步枪开火声不是第三方录音，而是项目内确定性生成：
 
@@ -395,6 +424,10 @@ Config/DefaultEngine.ini 已启用 PCD3D_SM6。如果出现 Nanite“缺失 Shad
 - Config：重启 UE。
 - 新源码文件：重新生成解决方案。
 - 地图物体缺失：检查外部 Actor/Object 文件是否被提交。
+
+### 隐私检查失败
+
+执行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tools\CheckPrivacy.ps1`。脚本返回 1 表示工作树、暂存区或 Git 提交身份存在风险；返回 2 表示忽略规则、JSON 或 Git 状态无法安全检查。报告故意不显示匹配内容，请按类别和文件/行号检查；不要为了通过检查而将私密值写入脚本白名单。
 
 ### 二进制资产冲突
 

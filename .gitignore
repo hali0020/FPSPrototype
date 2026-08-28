@@ -20,7 +20,6 @@
 *.xcworkspace
 /.idea/
 /.vscode/
-/.vsconfig
 *.code-workspace
 
 # Per-user Unreal content
@@ -39,6 +38,10 @@
 
 # Local recovery data used while rewriting public Git history.
 /.local-licensed-assets/
+
+# Single local-only metadata file. Git ignore is not encryption: never put
+# passwords, tokens, API keys, private keys, or certificates in this file.
+/.local/private.json
 
 # Plugin build products (keep plugin source and content)
 /Plugins/*/Binaries/

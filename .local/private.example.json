@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "localProfile": {
+    "displayName": "",
+    "email": "",
+    "windowsUserName": "",
+    "computerName": "",
+    "projectRoot": "",
+    "unrealEngineRoot": "",
+    "epicAccountAlias": "",
+    "hostingAccountAlias": ""
+  },
+  "privacyScan": {
+    "blockedLiterals": []
+  }
+}

@@ -12,8 +12,25 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HealthComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/PackageName.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
+#include "UObject/UObjectGlobals.h"
+
+namespace
+{
+USoundBase* LoadOptionalLocalSound(const TCHAR* AssetPath)
+{
+    const FString PackageName = FPackageName::ObjectPathToPackageName(FString(AssetPath));
+    if (!FPackageName::DoesPackageExist(PackageName))
+    {
+        return nullptr;
+    }
+
+    return LoadObject<USoundBase>(
+        nullptr, AssetPath, FStringView{}, LOAD_NoWarn | LOAD_Quiet);
+}
+}
 
 AFPSEnemy::AFPSEnemy()
 {
@@ -84,8 +101,10 @@ AFPSEnemy::AFPSEnemy()
 
     const auto AddVoice = [](TArray<TObjectPtr<USoundBase>>& Target, const TCHAR* AssetPath)
     {
-        ConstructorHelpers::FObjectFinder<USoundBase> VoiceAsset(AssetPath);
-        if (VoiceAsset.Succeeded()) Target.Add(VoiceAsset.Object);
+        if (USoundBase* VoiceAsset = LoadOptionalLocalSound(AssetPath))
+        {
+            Target.Add(VoiceAsset);
+        }
     };
     AddVoice(QuinnAlertSounds,
         TEXT("/Game/HumanVocalizations/HumanFemaleC/Wavs/voice_female_c_battle_shout_short_01.voice_female_c_battle_shout_short_01"));

@@ -68,10 +68,11 @@
 
 ## 技术环境
 
-- Unreal Engine 5.8.2
+- Unreal Engine 5.8.2（已验证 CL `56702186`）
 - Unreal C++ Runtime Module
 - Windows / DirectX 12 / Shader Model 6
-- Visual Studio 2022 与 Windows SDK
+- Visual Studio C++ 工具链（按仓库内 `.vsconfig` 安装）
+- UE 5.8 首选 MSVC 14.50；当前也已用 MSVC 14.51 验证
 - Git LFS
 - PowerShell 音频生成脚本
 - Unreal Python 资源导入脚本
@@ -79,9 +80,9 @@
 ## 获取与运行
 
 1. 安装 Unreal Engine 5.8.2。
-2. 安装 Visual Studio 2022，并启用“使用 C++ 的游戏开发”、Windows SDK 和 Unreal Engine 工具。
+2. 使用 `.vsconfig` 安装 Visual Studio C++、Windows SDK 和 Unreal Engine 工具组件。
 3. 安装 Git 与 Git LFS。
-4. 克隆并准备资源：
+4. 将仓库克隆到全 ASCII 路径（例如 `D:\UEProjects\FPSPrototype`），并准备资源：
 
 ```powershell
 git lfs install
@@ -90,17 +91,34 @@ cd FPSPrototype
 git lfs pull
 ```
 
-5. 右键 `FPSPrototype.uproject`，选择 UE 5.8.2 并生成 Visual Studio 项目文件。
-6. 编译 `FPSPrototypeEditor` / `Development Editor`，然后打开项目。
-7. 默认地图为 `/Game/FirstPerson/Lvl_FirstPerson`。
+   当前 UE/MSVC 组合在含中文等非 ASCII 字符的工程路径下可能因 PCH 路径而编译失败，所以不要把正式工作副本放在这类路径。
+
+5. 初始化只属于当前电脑的隐私文件和通用提交身份：
+
+```powershell
+Copy-Item .local/private.example.json .local/private.json
+git config --local user.name "FPSPrototype Contributors"
+git config --local user.email "contributors@users.noreply.github.com"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Tools\CheckPrivacy.ps1
+```
+
+6. 右键 `FPSPrototype.uproject`，选择 UE 5.8.2 并生成 Visual Studio 项目文件。
+7. 编译 `FPSGameEditor` / `Development Editor`，然后打开项目。
+8. 默认地图为 `/Game/FirstPerson/Lvl_FirstPerson`。
 
 首次启动会生成 `Binaries`、`Intermediate`、`Saved` 和缓存目录，这些内容均不会提交到仓库。
 
 ## 资源边界
 
-公开源码不包含 `Human Vocalizations` 与 `Interface & Item Sounds Pack` 的源格式 SoundWave。缺少这些可选资源时，代码会跳过相应角色语音、空仓和换弹声音，核心玩法仍可编译运行。需要完整声音的开发环境应通过自己的 Epic/Fab 账号取得许可副本。
+公开源码不包含 `Human Vocalizations` 与 `Interface & Item Sounds Pack` 的源格式 SoundWave。缺少这些可选资源时，代码会静默跳过相应角色语音、空仓和换弹声音，核心玩法仍可编译、Cook 和运行。需要完整声音的开发环境应通过自己的 Epic/Fab 账号取得许可副本。本地资源保留在已忽略的 `Content/HumanVocalizations`、`Content/InterfaceAndItemSounds` 和 `.local-licensed-assets` 中，不会进入 Git。
 
 Unreal Engine 模板内容、第三方资源来源和分发边界记录在 [`CREDITS.md`](CREDITS.md) 与 [`THIRD_PARTY_ASSETS.md`](THIRD_PARTY_ASSETS.md)。受限 Marketplace/Fab 源资源不会进入提交、分支、标签、Release 或公开构建附件。
+
+## 本地隐私与提交检查
+
+项目需要记住的本机用户名、计算机名、账号别名和绝对路径统一写在 `.local/private.json`；该文件已被 Git 精确忽略，仓库只跟踪空值模板 `.local/private.example.json`。`Tools/CheckPrivacy.ps1` 会扫描已跟踪工作树和暂存区中的受支持文本文件，拦截本地值、用户目录、非通用邮箱、凭据 URL、令牌和私钥；它还会拒绝本地授权资源目录被 `git add -f` 强制加入索引，并且不会在报告中回显命中内容。
+
+`.gitignore` 不是加密。密码、token、API Key、私钥和证书仍必须使用 Windows Credential Manager、环境变量或其他专用秘密存储，不能写入这个 JSON。Git 远程地址保留在本地 `.git/config`，登录凭据由凭据管理器保管，两者都不是跟踪文件。检查脚本不会解析 `.uasset`、`.umap` 等二进制资产的内部元数据；新导入或来源不明的二进制资源仍须按资产审计流程单独检查。
 
 ## 验证状态
 
